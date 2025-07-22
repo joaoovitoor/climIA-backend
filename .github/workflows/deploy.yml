@@ -1,0 +1,155 @@
+name: Deploy to Lambda
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  FUNCTION_NAME: climia-api
+  REGION: us-east-1
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: "1.21"
+
+      - name: Install dependencies
+        run: go mod download
+
+      - name: Run tests
+        run: go test ./...
+
+  build:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: "1.21"
+
+      - name: Build for Lambda
+        run: |
+          GOOS=linux GOARCH=amd64 go build -o bootstrap cmd/lambda/main.go
+          zip function.zip bootstrap
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: lambda-function
+          path: function.zip
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download build artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: lambda-function
+          path: .
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.REGION }}
+
+      - name: Deploy to Lambda
+        run: |
+          # Verificar se função existe
+          if aws lambda get-function --function-name ${{ env.FUNCTION_NAME }} --region ${{ env.REGION }} 2>/dev/null; then
+            echo "🔄 Atualizando função Lambda..."
+            aws lambda update-function-code \
+              --function-name ${{ env.FUNCTION_NAME }} \
+              --zip-file fileb://function.zip \
+              --region ${{ env.REGION }}
+          else
+            echo "🆕 Criando função Lambda..."
+            aws lambda create-function \
+              --function-name ${{ env.FUNCTION_NAME }} \
+              --runtime provided.al2 \
+              --role ${{ secrets.LAMBDA_ROLE_ARN }} \
+              --handler bootstrap \
+              --zip-file fileb://function.zip \
+              --region ${{ env.REGION }} \
+              --timeout 30 \
+              --memory-size 512 \
+              --environment Variables='{DB_HOST=${{ secrets.DB_HOST }},DB_PORT=${{ secrets.DB_PORT }},DB_USER=${{ secrets.DB_USER }},DB_PASS=${{ secrets.DB_PASS }},DB_NAME=${{ secrets.DB_NAME }}}'
+          fi
+
+      - name: Update function configuration
+        run: |
+          aws lambda update-function-configuration \
+            --function-name ${{ env.FUNCTION_NAME }} \
+            --environment Variables='{DB_HOST=${{ secrets.DB_HOST }},DB_PORT=${{ secrets.DB_PORT }},DB_USER=${{ secrets.DB_USER }},DB_PASS=${{ secrets.DB_PASS }},DB_NAME=${{ secrets.DB_NAME }}}' \
+            --region ${{ env.REGION }}
+
+      - name: Deploy API Gateway
+        run: |
+          # Criar API Gateway se não existir
+          API_ID=$(aws apigateway get-rest-apis --query "items[?name=='ClimIA API'].id" --output text)
+
+          if [ -z "$API_ID" ]; then
+            echo "🆕 Criando API Gateway..."
+            API_ID=$(aws apigateway create-rest-api \
+              --name "ClimIA API" \
+              --description "API de previsão meteorológica" \
+              --query 'id' --output text)
+          fi
+
+          echo "API ID: $API_ID"
+
+          # Configurar proxy resource
+          ROOT_ID=$(aws apigateway get-resources \
+            --rest-api-id $API_ID \
+            --query 'items[?path==`/`].id' --output text)
+
+          PROXY_ID=$(aws apigateway create-resource \
+            --rest-api-id $API_ID \
+            --parent-id $ROOT_ID \
+            --path-part "{proxy+}" \
+            --query 'id' --output text)
+
+          # Configurar métodos
+          aws apigateway put-method \
+            --rest-api-id $API_ID \
+            --resource-id $ROOT_ID \
+            --http-method GET \
+            --authorization-type NONE
+
+          aws apigateway put-integration \
+            --rest-api-id $API_ID \
+            --resource-id $ROOT_ID \
+            --http-method GET \
+            --type AWS_PROXY \
+            --integration-http-method POST \
+            --uri arn:aws:apigateway:${{ env.REGION }}:lambda:path/2015-03-31/functions/arn:aws:lambda:${{ env.REGION }}:${{ secrets.AWS_ACCOUNT_ID }}:function:${{ env.FUNCTION_NAME }}/invocations
+
+          # Deploy
+          aws apigateway create-deployment \
+            --rest-api-id $API_ID \
+            --stage-name prod
+
+      - name: Success message
+        run: |
+          echo "✅ Deploy concluído!"
+          echo "🌐 URL: https://$API_ID.execute-api.${{ env.REGION }}.amazonaws.com/prod/"
