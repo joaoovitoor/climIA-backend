@@ -190,7 +190,8 @@ jobs:
               'op=add,path=/requestParameters/method.request.querystring.estado,value=false' \
               'op=add,path=/requestParameters/method.request.querystring.data,value=false' \
               'op=add,path=/requestParameters/method.request.querystring.datainicio,value=false' \
-              'op=add,path=/requestParameters/method.request.querystring.datafim,value=false'
+              'op=add,path=/requestParameters/method.request.querystring.datafim,value=false' \
+              'op=add,path=/requestParameters/method.request.querystring.ANY,value=false'
 
           echo "🔧 Configurando integração para root..."
           aws apigateway put-integration \
@@ -223,7 +224,8 @@ jobs:
               'op=add,path=/requestParameters/method.request.querystring.estado,value=false' \
               'op=add,path=/requestParameters/method.request.querystring.data,value=false' \
               'op=add,path=/requestParameters/method.request.querystring.datainicio,value=false' \
-              'op=add,path=/requestParameters/method.request.querystring.datafim,value=false'
+              'op=add,path=/requestParameters/method.request.querystring.datafim,value=false' \
+              'op=add,path=/requestParameters/method.request.querystring.ANY,value=false'
 
           echo "🔧 Configurando integração para proxy..."
           aws apigateway put-integration \
