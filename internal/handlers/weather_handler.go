@@ -23,11 +23,13 @@ func NewWeatherHandler(service *services.WeatherService) *WeatherHandler {
 func (h *WeatherHandler) CalculateForecast(c *fiber.Ctx) error {
 	var req models.WeatherRequest
 
-	req.Cidade = strings.TrimSpace(c.Query("cidade"))
-	req.Estado = strings.ToUpper(strings.TrimSpace(c.Query("estado")))
-	req.Data = c.Query("data")
-	req.DataInicio = c.Query("datainicio")
-	req.DataFim = c.Query("datafim")
+	queryArgs := c.Context().QueryArgs()
+	
+	req.Cidade = strings.TrimSpace(string(queryArgs.Peek("cidade")))
+	req.Estado = strings.ToUpper(strings.TrimSpace(string(queryArgs.Peek("estado"))))
+	req.Data = string(queryArgs.Peek("data"))
+	req.DataInicio = string(queryArgs.Peek("datainicio"))
+	req.DataFim = string(queryArgs.Peek("datafim"))
 
 	if req.Cidade == "" || req.Estado == "" {
 		return c.JSON(fiber.Map{
