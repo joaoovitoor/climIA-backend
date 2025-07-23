@@ -159,11 +159,16 @@ jobs:
           fi
 
           echo "🔧 Configurando método ANY para root..."
-          aws apigateway put-method \
-            --rest-api-id $API_ID \
-            --resource-id $ROOT_ID \
-            --http-method ANY \
-            --authorization-type NONE
+          if ! aws apigateway get-method --rest-api-id $API_ID --resource-id $ROOT_ID --http-method ANY 2>/dev/null; then
+            aws apigateway put-method \
+              --rest-api-id $API_ID \
+              --resource-id $ROOT_ID \
+              --http-method ANY \
+              --authorization-type NONE
+            echo "✅ Método ANY criado para root"
+          else
+            echo "✅ Método ANY já existe para root"
+          fi
 
           echo "🔧 Configurando integração para root..."
           aws apigateway put-integration \
@@ -175,11 +180,16 @@ jobs:
             --uri "arn:aws:apigateway:${{ env.REGION }}:lambda:path/2015-03-31/functions/arn:aws:lambda:${{ env.REGION }}:${{ secrets.AWS_ACCOUNT_ID }}:function:${{ env.FUNCTION_NAME }}/invocations"
 
           echo "🔧 Configurando método ANY para proxy..."
-          aws apigateway put-method \
-            --rest-api-id $API_ID \
-            --resource-id $PROXY_ID \
-            --http-method ANY \
-            --authorization-type NONE
+          if ! aws apigateway get-method --rest-api-id $API_ID --resource-id $PROXY_ID --http-method ANY 2>/dev/null; then
+            aws apigateway put-method \
+              --rest-api-id $API_ID \
+              --resource-id $PROXY_ID \
+              --http-method ANY \
+              --authorization-type NONE
+            echo "✅ Método ANY criado para proxy"
+          else
+            echo "✅ Método ANY já existe para proxy"
+          fi
 
           echo "🔧 Configurando integração para proxy..."
           aws apigateway put-integration \
