@@ -84,6 +84,11 @@ jobs:
               --zip-file fileb://function.zip \
               --region ${{ env.REGION }}
             
+            echo "⏳ Aguardando função ficar ativa..."
+            aws lambda wait function-active \
+              --function-name ${{ env.FUNCTION_NAME }} \
+              --region ${{ env.REGION }}
+            
             echo "✅ Código atualizado com sucesso!"
             
             echo "⚙️ Atualizando configuração..."
