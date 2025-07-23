@@ -67,6 +67,9 @@ func (h *LambdaHandler) HandleRequest(ctx context.Context, request events.APIGat
 		}, err
 	}
 
+	log.Printf("DEBUG - HTTP Request URL: %s", httpReq.URL.String())
+	log.Printf("DEBUG - HTTP Request Method: %s", httpReq.Method)
+
 	for key, value := range request.Headers {
 		httpReq.Header.Set(key, value)
 	}
