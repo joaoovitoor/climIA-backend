@@ -86,10 +86,8 @@ jobs:
               --zip-file fileb://function.zip \
               --region ${{ env.REGION }}
             
-            # Aguardar e atualizar configuração
-            echo "⏳ Aguardando função ficar disponível..."
-            aws lambda wait function-updated --function-name ${{ env.FUNCTION_NAME }} --region ${{ env.REGION }}
-            
+            # Atualizar configuração
+            echo "⚙️ Atualizando configuração..."
             aws lambda update-function-configuration \
               --function-name ${{ env.FUNCTION_NAME }} \
               --environment Variables='{DB_CONNECTION_STRING=${{ secrets.DB_CONNECTION_STRING }}}' \
@@ -107,9 +105,7 @@ jobs:
               --memory-size 512 \
               --environment Variables='{DB_CONNECTION_STRING=${{ secrets.DB_CONNECTION_STRING }}}'
             
-            # Aguardar criação
-            echo "⏳ Aguardando função ser criada..."
-            aws lambda wait function-active --function-name ${{ env.FUNCTION_NAME }} --region ${{ env.REGION }}
+            echo "✅ Função criada com sucesso!"
           fi
 
       - name: Deploy API Gateway
