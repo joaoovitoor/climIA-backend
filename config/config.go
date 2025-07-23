@@ -8,11 +8,7 @@ import (
 )
 
 type Config struct {
-	DBHost     string
-	DBPort     string
-	DBUser     string
-	DBPassword string
-	DBName     string
+	DBConnectionString string
 }
 
 func LoadConfig() *Config {
@@ -22,11 +18,7 @@ func LoadConfig() *Config {
 	}
 
 	return &Config{
-		DBHost:     getEnv("DB_HOST", "localhost"),
-		DBPort:     getEnv("DB_PORT", "3306"),
-		DBUser:     getEnv("DB_USER", "root"),
-		DBPassword: getEnv("DB_PASS", "senha123"),
-		DBName:     getEnv("DB_NAME", "climia"),
+		DBConnectionString: getEnv("DB_CONNECTION_STRING", "root:senha123@tcp(localhost:3306)/climia?parseTime=true"),
 	}
 }
 

@@ -2,7 +2,6 @@ package database
 
 import (
 	"database/sql"
-	"fmt"
 	"log"
 
 	"climia-backend/config"
@@ -10,15 +9,7 @@ import (
 )
 
 func NewConnection(config *config.Config) *sql.DB {
-	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?parseTime=true&loc=Local",
-		config.DBUser,
-		config.DBPassword,
-		config.DBHost,
-		config.DBPort,
-		config.DBName,
-	)
-
-	db, err := sql.Open("mysql", dsn)
+	db, err := sql.Open("mysql", config.DBConnectionString)
 	if err != nil {
 		log.Fatal("Erro ao conectar com o banco de dados:", err)
 	}
