@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"strings"
@@ -9,6 +11,7 @@ import (
 	"climia-backend/config"
 	"climia-backend/internal/database"
 	"climia-backend/internal/handlers"
+	"climia-backend/internal/models"
 	"climia-backend/internal/services"
 
 	"github.com/aws/aws-lambda-go/events"
@@ -18,7 +21,8 @@ import (
 )
 
 type LambdaHandler struct {
-	app *fiber.App
+	app            *fiber.App
+	weatherService *services.WeatherService
 }
 
 func NewLambdaHandler() *LambdaHandler {
@@ -37,83 +41,68 @@ func NewLambdaHandler() *LambdaHandler {
 		})
 	})
 
-	return &LambdaHandler{app: app}
+	return &LambdaHandler{
+		app:            app,
+		weatherService: weatherService,
+	}
 }
 
 func (h *LambdaHandler) HandleRequest(ctx context.Context, request events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
-	fiberHandler := adaptor.FiberApp(h.app)
-
 	log.Printf("=== LAMBDA INICIADA ===")
 	log.Printf("DEBUG - HTTP Method: %s", request.HTTPMethod)
 	log.Printf("DEBUG - Path: %s", request.Path)
 	log.Printf("DEBUG - QueryStringParameters: %v", request.QueryStringParameters)
-	log.Printf("DEBUG - Headers: %v", request.Headers)
 
-	url := request.Path
-	if len(request.QueryStringParameters) > 0 {
-		params := make([]string, 0, len(request.QueryStringParameters))
-		for key, value := range request.QueryStringParameters {
-			params = append(params, key+"="+value)
-		}
-		url += "?" + strings.Join(params, "&")
-		log.Printf("DEBUG - Final URL: %s", url)
-	}
-
-	url = "http://localhost" + url
-	log.Printf("DEBUG - URL completa: %s", url)
-
-	httpReq, err := http.NewRequest(request.HTTPMethod, url, strings.NewReader(request.Body))
-	if err != nil {
+	if request.Path == "/health" {
 		return events.APIGatewayProxyResponse{
-			StatusCode: 500,
-			Body:       `{"error": "Erro ao processar requisição"}`,
-		}, err
+			StatusCode: 200,
+			Headers:    map[string]string{"Content-Type": "application/json"},
+			Body:       `{"status":"ok","message":"ClimIA API is running"}`,
+		}, nil
 	}
 
-	log.Printf("DEBUG - HTTP Request URL: %s", httpReq.URL.String())
-	log.Printf("DEBUG - HTTP Request Method: %s", httpReq.Method)
+	if request.Path == "/" {
+		var req models.WeatherRequest
+		for key, value := range request.QueryStringParameters {
+			switch key {
+			case "cidade":
+				req.Cidade = value
+			case "estado":
+				req.Estado = value
+			case "data":
+				req.Data = value
+			case "datainicio":
+				req.DataInicio = value
+			case "datafim":
+				req.DataFim = value
+			}
+		}
 
-	for key, value := range request.Headers {
-		httpReq.Header.Set(key, value)
+		log.Printf("DEBUG - Parâmetros extraídos: cidade=%s, estado=%s, data=%s", req.Cidade, req.Estado, req.Data)
+
+		forecasts, err := h.weatherService.CalculateForecast(req)
+		if err != nil {
+			log.Printf("Erro ao calcular previsão: %v", err)
+			return events.APIGatewayProxyResponse{
+				StatusCode: 400,
+				Headers:    map[string]string{"Content-Type": "application/json"},
+				Body:       fmt.Sprintf(`{"error":"%s"}`, err.Error()),
+			}, nil
+		}
+
+		responseBody, _ := json.Marshal(forecasts)
+		return events.APIGatewayProxyResponse{
+			StatusCode: 200,
+			Headers:    map[string]string{"Content-Type": "application/json"},
+			Body:       string(responseBody),
+		}, nil
 	}
-
-	httpReq.URL.RawQuery = httpReq.URL.Query().Encode()
-	log.Printf("DEBUG - Raw Query: %s", httpReq.URL.RawQuery)
-
-	httpReq.URL.RawQuery = httpReq.URL.Query().Encode()
-	log.Printf("DEBUG - Raw Query: %s", httpReq.URL.RawQuery)
-
-	response := &responseWriter{
-		headers: make(map[string]string),
-		body:    &strings.Builder{},
-	}
-
-	fiberHandler.ServeHTTP(response, httpReq)
 
 	return events.APIGatewayProxyResponse{
-		StatusCode:        response.statusCode,
-		Headers:          response.headers,
-		Body:             response.body.String(),
-		IsBase64Encoded:  false,
+		StatusCode: 404,
+		Headers:    map[string]string{"Content-Type": "application/json"},
+		Body:       `{"error":"Not found"}`,
 	}, nil
-}
-
-type responseWriter struct {
-	statusCode int
-	headers    map[string]string
-	body       *strings.Builder
-}
-
-func (w *responseWriter) Header() http.Header {
-	return make(http.Header)
-}
-
-func (w *responseWriter) Write(data []byte) (int, error) {
-	return w.body.Write(data)
-}
-
-func (w *responseWriter) WriteHeader(statusCode int) {
-	w.statusCode = statusCode
 }
 
 func main() {
