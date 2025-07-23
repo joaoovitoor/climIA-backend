@@ -20,8 +20,14 @@ func NewWeatherHandler(service *services.WeatherService) *WeatherHandler {
 }
 
 func (h *WeatherHandler) CalculateForecast(c *fiber.Ctx) error {
+	log.Printf("DEBUG - Handler recebido")
+	log.Printf("DEBUG - Query string: %s", c.Context().QueryArgs().String())
+	log.Printf("DEBUG - URL: %s", c.Context().URI().String())
+	
 	var req models.WeatherRequest
 	c.QueryParser(&req)
+	
+	log.Printf("DEBUG - Parâmetros extraídos: cidade=%s, estado=%s, data=%s", req.Cidade, req.Estado, req.Data)
 
 	forecasts, err := h.weatherService.CalculateForecast(req)
 	if err != nil {
