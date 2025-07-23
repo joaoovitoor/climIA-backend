@@ -3,12 +3,11 @@ name: Deploy to Lambda
 on:
   push:
     branches: [main]
-  pull_request:
-    branches: [main]
 
 env:
   FUNCTION_NAME: climia-api
   REGION: us-east-1
+  API_NAME: ClimIA API
 
 jobs:
   test:
@@ -43,7 +42,7 @@ jobs:
       - name: Build for Lambda
         run: |
           echo "🔨 Building for Lambda..."
-          GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o bootstrap cmd/lambda/main.go
+          GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-s -w" -o bootstrap cmd/lambda/main.go
           echo "📦 Creating ZIP file..."
           zip function.zip bootstrap
           echo "📊 ZIP size: $(du -h function.zip | cut -f1)"
@@ -76,9 +75,8 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.REGION }}
 
-      - name: Deploy to Lambda
+      - name: Deploy Lambda Function
         run: |
-          # Verificar se função existe
           if aws lambda get-function --function-name ${{ env.FUNCTION_NAME }} --region ${{ env.REGION }} 2>/dev/null; then
             echo "🔄 Atualizando função Lambda..."
             aws lambda update-function-code \
@@ -86,14 +84,13 @@ jobs:
               --zip-file fileb://function.zip \
               --region ${{ env.REGION }}
             
-                echo "✅ Código atualizado com sucesso!"
-    
-    # Atualizar configuração para usar DB_CONNECTION_STRING
-    echo "⚙️ Atualizando configuração..."
-    aws lambda update-function-configuration \
-      --function-name ${{ env.FUNCTION_NAME }} \
-      --environment Variables='{DB_CONNECTION_STRING=${{ secrets.DB_CONNECTION_STRING }}}' \
-      --region ${{ env.REGION }}
+            echo "✅ Código atualizado com sucesso!"
+            
+            echo "⚙️ Atualizando configuração..."
+            aws lambda update-function-configuration \
+              --function-name ${{ env.FUNCTION_NAME }} \
+              --environment Variables="{DB_CONNECTION_STRING=\"${{ secrets.DB_CONNECTION_STRING }}\"}" \
+              --region ${{ env.REGION }}
           else
             echo "🆕 Criando função Lambda..."
             aws lambda create-function \
@@ -105,58 +102,129 @@ jobs:
               --region ${{ env.REGION }} \
               --timeout 30 \
               --memory-size 512 \
-              --environment Variables='{DB_CONNECTION_STRING=${{ secrets.DB_CONNECTION_STRING }}}'
+              --environment Variables="{DB_CONNECTION_STRING=\"${{ secrets.DB_CONNECTION_STRING }}\"}"
             
             echo "✅ Função criada com sucesso!"
           fi
 
-      - name: Deploy API Gateway
+      - name: Setup API Gateway
         run: |
-          # Criar API Gateway se não existir
-          API_ID=$(aws apigateway get-rest-apis --query "items[?name=='ClimIA API'].id" --output text)
+          API_ID=$(aws apigateway get-rest-apis \
+            --query "items[?name=='${{ env.API_NAME }}'].id" \
+            --output text)
 
-          if [ -z "$API_ID" ]; then
+          if [ -z "$API_ID" ] || [ "$API_ID" = "None" ]; then
             echo "🆕 Criando API Gateway..."
             API_ID=$(aws apigateway create-rest-api \
-              --name "ClimIA API" \
+              --name "${{ env.API_NAME }}" \
               --description "API de previsão meteorológica" \
+              --endpoint-configuration types=REGIONAL \
               --query 'id' --output text)
+            echo "API criada com ID: $API_ID"
+          else
+            echo "🔄 Usando API existente: $API_ID"
           fi
 
-          echo "API ID: $API_ID"
+          echo "API_ID=$API_ID" >> $GITHUB_ENV
 
-          # Configurar proxy resource
+      - name: Configure API Gateway Resources
+        run: |
           ROOT_ID=$(aws apigateway get-resources \
             --rest-api-id $API_ID \
-            --query 'items[?path==`/`].id' --output text)
+            --query 'items[?path==`/`].id' \
+            --output text)
 
-          PROXY_ID=$(aws apigateway create-resource \
+          echo "Root resource ID: $ROOT_ID"
+
+          PROXY_ID=$(aws apigateway get-resources \
             --rest-api-id $API_ID \
-            --parent-id $ROOT_ID \
-            --path-part "{proxy+}" \
+            --query 'items[?pathPart==`{proxy+}`].id' \
+            --output text)
+
+          if [ -z "$PROXY_ID" ] || [ "$PROXY_ID" = "None" ]; then
+            echo "🆕 Criando proxy resource..."
+            PROXY_ID=$(aws apigateway create-resource \
+              --rest-api-id $API_ID \
+              --parent-id $ROOT_ID \
+              --path-part "{proxy+}" \
+              --query 'id' --output text)
+            echo "Proxy resource criado: $PROXY_ID"
+          else
+            echo "🔄 Usando proxy resource existente: $PROXY_ID"
+          fi
+
+          if ! aws apigateway get-method --rest-api-id $API_ID --resource-id $ROOT_ID --http-method ANY 2>/dev/null; then
+            echo "🔧 Configurando método ANY para root..."
+            aws apigateway put-method \
+              --rest-api-id $API_ID \
+              --resource-id $ROOT_ID \
+              --http-method ANY \
+              --authorization-type NONE
+
+            aws apigateway put-integration \
+              --rest-api-id $API_ID \
+              --resource-id $ROOT_ID \
+              --http-method ANY \
+              --type AWS_PROXY \
+              --integration-http-method POST \
+              --uri "arn:aws:apigateway:${{ env.REGION }}:lambda:path/2015-03-31/functions/arn:aws:lambda:${{ env.REGION }}:${{ secrets.AWS_ACCOUNT_ID }}:function:${{ env.FUNCTION_NAME }}/invocations"
+          fi
+
+          if ! aws apigateway get-method --rest-api-id $API_ID --resource-id $PROXY_ID --http-method ANY 2>/dev/null; then
+            echo "🔧 Configurando método ANY para proxy..."
+            aws apigateway put-method \
+              --rest-api-id $API_ID \
+              --resource-id $PROXY_ID \
+              --http-method ANY \
+              --authorization-type NONE
+
+            aws apigateway put-integration \
+              --rest-api-id $API_ID \
+              --resource-id $PROXY_ID \
+              --http-method ANY \
+              --type AWS_PROXY \
+              --integration-http-method POST \
+              --uri "arn:aws:apigateway:${{ env.REGION }}:lambda:path/2015-03-31/functions/arn:aws:lambda:${{ env.REGION }}:${{ secrets.AWS_ACCOUNT_ID }}:function:${{ env.FUNCTION_NAME }}/invocations"
+          fi
+
+      - name: Grant API Gateway Permission
+        run: |
+          STATEMENT_ID="apigateway-invoke-lambda-$API_ID"
+
+          aws lambda remove-permission \
+            --function-name ${{ env.FUNCTION_NAME }} \
+            --statement-id $STATEMENT_ID \
+            --region ${{ env.REGION }} 2>/dev/null || true
+
+          echo "🔐 Adicionando permissão para API Gateway..."
+          aws lambda add-permission \
+            --function-name ${{ env.FUNCTION_NAME }} \
+            --statement-id $STATEMENT_ID \
+            --action lambda:InvokeFunction \
+            --principal apigateway.amazonaws.com \
+            --source-arn "arn:aws:execute-api:${{ env.REGION }}:${{ secrets.AWS_ACCOUNT_ID }}:$API_ID/*/*" \
+            --region ${{ env.REGION }}
+
+      - name: Deploy API
+        run: |
+          echo "🚀 Fazendo deploy da API..."
+          DEPLOYMENT_ID=$(aws apigateway create-deployment \
+            --rest-api-id $API_ID \
+            --stage-name prod \
+            --description "Deploy via GitHub Actions - $(date)" \
             --query 'id' --output text)
 
-          # Configurar métodos
-          aws apigateway put-method \
-            --rest-api-id $API_ID \
-            --resource-id $ROOT_ID \
-            --http-method GET \
-            --authorization-type NONE
+          echo "✅ Deploy concluído! Deployment ID: $DEPLOYMENT_ID"
 
-          aws apigateway put-integration \
-            --rest-api-id $API_ID \
-            --resource-id $ROOT_ID \
-            --http-method GET \
-            --type AWS_PROXY \
-            --integration-http-method POST \
-            --uri arn:aws:apigateway:${{ env.REGION }}:lambda:path/2015-03-31/functions/arn:aws:lambda:${{ env.REGION }}:${{ secrets.AWS_ACCOUNT_ID }}:function:${{ env.FUNCTION_NAME }}/invocations
-
-          # Deploy
-          aws apigateway create-deployment \
-            --rest-api-id $API_ID \
-            --stage-name prod
-
-      - name: Success message
+      - name: Display URLs
         run: |
-          echo "✅ Deploy concluído!"
-          echo "🌐 URL: https://$API_ID.execute-api.${{ env.REGION }}.amazonaws.com/prod/"
+          echo "🎉 Deploy concluído com sucesso!"
+          echo ""
+          echo "📊 Informações do deploy:"
+          echo "  • Function: ${{ env.FUNCTION_NAME }}"
+          echo "  • API ID: $API_ID"
+          echo "  • Region: ${{ env.REGION }}"
+          echo ""
+          echo "🌐 URLs disponíveis:"
+          echo "  • Root: https://$API_ID.execute-api.${{ env.REGION }}.amazonaws.com/prod/"
+          echo "  • Proxy: https://$API_ID.execute-api.${{ env.REGION }}.amazonaws.com/prod/{qualquer-path}"
