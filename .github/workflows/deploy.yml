@@ -49,7 +49,7 @@ jobs:
           echo "📊 ZIP size: $(du -h function.zip | cut -f1)"
 
       - name: Upload build artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: lambda-function
           path: function.zip
@@ -64,7 +64,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Download build artifact
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: lambda-function
           path: .
