@@ -60,8 +60,18 @@ func (h *LambdaHandler) HandleRequest(ctx context.Context, request events.APIGat
 	// Converter APIGatewayProxyRequest para Fiber Context
 	fiberHandler := adaptor.FiberApp(h.app)
 
-	// Criar HTTP request
-	httpReq, err := http.NewRequest(request.HTTPMethod, request.Path, strings.NewReader(request.Body))
+	// Construir URL com query parameters
+	url := request.Path
+	if len(request.QueryStringParameters) > 0 {
+		queryParams := make([]string, 0, len(request.QueryStringParameters)*2)
+		for key, value := range request.QueryStringParameters {
+			queryParams = append(queryParams, key+"="+value)
+		}
+		url += "?" + strings.Join(queryParams, "&")
+	}
+
+	// Criar HTTP request com URL completa
+	httpReq, err := http.NewRequest(request.HTTPMethod, url, strings.NewReader(request.Body))
 	if err != nil {
 		return events.APIGatewayProxyResponse{
 			StatusCode: 500,
@@ -73,13 +83,6 @@ func (h *LambdaHandler) HandleRequest(ctx context.Context, request events.APIGat
 	for key, value := range request.Headers {
 		httpReq.Header.Set(key, value)
 	}
-
-	// Adicionar query parameters
-	q := httpReq.URL.Query()
-	for key, value := range request.QueryStringParameters {
-		q.Add(key, value)
-	}
-	httpReq.URL.RawQuery = q.Encode()
 
 	log.Printf("DEBUG - Final URL: %s", httpReq.URL.String())
 
