@@ -8,11 +8,7 @@ import (
 )
 
 type Config struct {
-	DBHost     string
-	DBPort     string
-	DBUser     string
-	DBPassword string
-	DBName     string
+	DBConnectionString string
 }
 
 func LoadConfig() *Config {
