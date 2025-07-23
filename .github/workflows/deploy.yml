@@ -180,6 +180,18 @@ jobs:
             echo "✅ Método ANY já existe para root"
           fi
 
+          echo "🔧 Configurando query parameters para root..."
+          aws apigateway update-method \
+            --rest-api-id $API_ID \
+            --resource-id $ROOT_ID \
+            --http-method ANY \
+            --patch-operations \
+              'op=add,path=/requestParameters/method.request.querystring.cidade,value=false' \
+              'op=add,path=/requestParameters/method.request.querystring.estado,value=false' \
+              'op=add,path=/requestParameters/method.request.querystring.data,value=false' \
+              'op=add,path=/requestParameters/method.request.querystring.datainicio,value=false' \
+              'op=add,path=/requestParameters/method.request.querystring.datafim,value=false'
+
           echo "🔧 Configurando integração para root..."
           aws apigateway put-integration \
             --rest-api-id $API_ID \
@@ -200,6 +212,18 @@ jobs:
           else
             echo "✅ Método ANY já existe para proxy"
           fi
+
+          echo "🔧 Configurando query parameters para proxy..."
+          aws apigateway update-method \
+            --rest-api-id $API_ID \
+            --resource-id $PROXY_ID \
+            --http-method ANY \
+            --patch-operations \
+              'op=add,path=/requestParameters/method.request.querystring.cidade,value=false' \
+              'op=add,path=/requestParameters/method.request.querystring.estado,value=false' \
+              'op=add,path=/requestParameters/method.request.querystring.data,value=false' \
+              'op=add,path=/requestParameters/method.request.querystring.datainicio,value=false' \
+              'op=add,path=/requestParameters/method.request.querystring.datafim,value=false'
 
           echo "🔧 Configurando integração para proxy..."
           aws apigateway put-integration \

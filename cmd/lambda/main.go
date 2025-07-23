@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"log"
 	"net/http"
 	"strings"
 
@@ -23,22 +22,12 @@ type LambdaHandler struct {
 
 func NewLambdaHandler() *LambdaHandler {
 	dbConfig := config.LoadConfig()
-
 	db := database.NewConnection(dbConfig)
 	weatherRepo := database.NewWeatherRepository(db)
 	weatherService := services.NewWeatherService(weatherRepo)
 	weatherHandler := handlers.NewWeatherHandler(weatherService)
 
-	app := fiber.New(fiber.Config{
-		ErrorHandler: func(c *fiber.Ctx, err error) error {
-			log.Printf("Erro na aplicação: %v", err)
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-				"error": "Erro interno do servidor",
-			})
-		},
-	})
-
-	// Configurar rotas
+	app := fiber.New()
 	app.Get("/", weatherHandler.CalculateForecast)
 	app.Get("/health", func(c *fiber.Ctx) error {
 		return c.JSON(fiber.Map{
@@ -51,26 +40,17 @@ func NewLambdaHandler() *LambdaHandler {
 }
 
 func (h *LambdaHandler) HandleRequest(ctx context.Context, request events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
-	// Log para debug
-	log.Printf("DEBUG - HTTP Method: %s", request.HTTPMethod)
-	log.Printf("DEBUG - Path: %s", request.Path)
-	log.Printf("DEBUG - QueryStringParameters: %+v", request.QueryStringParameters)
-	log.Printf("DEBUG - Headers: %+v", request.Headers)
-
-	// Converter APIGatewayProxyRequest para Fiber Context
 	fiberHandler := adaptor.FiberApp(h.app)
 
-	// Construir URL com query parameters
 	url := request.Path
 	if len(request.QueryStringParameters) > 0 {
-		queryParams := make([]string, 0, len(request.QueryStringParameters)*2)
+		params := make([]string, 0, len(request.QueryStringParameters))
 		for key, value := range request.QueryStringParameters {
-			queryParams = append(queryParams, key+"="+value)
+			params = append(params, key+"="+value)
 		}
-		url += "?" + strings.Join(queryParams, "&")
+		url += "?" + strings.Join(params, "&")
 	}
 
-	// Criar HTTP request com URL completa
 	httpReq, err := http.NewRequest(request.HTTPMethod, url, strings.NewReader(request.Body))
 	if err != nil {
 		return events.APIGatewayProxyResponse{
@@ -79,29 +59,21 @@ func (h *LambdaHandler) HandleRequest(ctx context.Context, request events.APIGat
 		}, err
 	}
 
-	// Adicionar headers
 	for key, value := range request.Headers {
 		httpReq.Header.Set(key, value)
 	}
 
-	log.Printf("DEBUG - Final URL: %s", httpReq.URL.String())
-
-	// Criar response writer
 	response := &responseWriter{
 		headers: make(map[string]string),
 		body:    &strings.Builder{},
 	}
 
-	// Processar requisição
 	fiberHandler.ServeHTTP(response, httpReq)
-
-	// Converter resposta
-	responseBody := response.body.String()
 
 	return events.APIGatewayProxyResponse{
 		StatusCode:        response.statusCode,
 		Headers:          response.headers,
-		Body:             responseBody,
+		Body:             response.body.String(),
 		IsBase64Encoded:  false,
 	}, nil
 }

@@ -23,11 +23,6 @@ func (h *WeatherHandler) CalculateForecast(c *fiber.Ctx) error {
 	var req models.WeatherRequest
 	c.QueryParser(&req)
 
-	log.Printf("DEBUG - URL completa: %s", c.Context().URI().String())
-	log.Printf("DEBUG - Query string: %s", c.Context().QueryArgs().String())
-	log.Printf("DEBUG - Parâmetros recebidos: cidade=%s, estado=%s, data=%s, datainicio=%s, datafim=%s", 
-		req.Cidade, req.Estado, req.Data, req.DataInicio, req.DataFim)
-
 	forecasts, err := h.weatherService.CalculateForecast(req)
 	if err != nil {
 		log.Printf("Erro ao calcular previsão: %v", err)
