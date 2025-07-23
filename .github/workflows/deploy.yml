@@ -86,16 +86,7 @@ jobs:
               --zip-file fileb://function.zip \
               --region ${{ env.REGION }}
             
-                # Aguardar Lambda terminar de processar
-    echo "⏳ Aguardando Lambda terminar de processar..."
-    sleep 10
-    
-    # Atualizar configuração
-    echo "⚙️ Atualizando configuração..."
-    aws lambda update-function-configuration \
-      --function-name ${{ env.FUNCTION_NAME }} \
-      --environment Variables='{DB_CONNECTION_STRING=${{ secrets.DB_CONNECTION_STRING }}}' \
-      --region ${{ env.REGION }}
+                echo "✅ Código atualizado com sucesso!"
           else
             echo "🆕 Criando função Lambda..."
             aws lambda create-function \
