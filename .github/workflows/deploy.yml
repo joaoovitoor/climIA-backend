@@ -87,6 +87,13 @@ jobs:
               --region ${{ env.REGION }}
             
                 echo "✅ Código atualizado com sucesso!"
+    
+    # Atualizar configuração para usar DB_CONNECTION_STRING
+    echo "⚙️ Atualizando configuração..."
+    aws lambda update-function-configuration \
+      --function-name ${{ env.FUNCTION_NAME }} \
+      --environment Variables='{DB_CONNECTION_STRING=${{ secrets.DB_CONNECTION_STRING }}}' \
+      --region ${{ env.REGION }}
           else
             echo "🆕 Criando função Lambda..."
             aws lambda create-function \
