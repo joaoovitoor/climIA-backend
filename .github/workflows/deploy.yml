@@ -158,39 +158,39 @@ jobs:
             echo "🔄 Usando proxy resource existente: $PROXY_ID"
           fi
 
-          if ! aws apigateway get-method --rest-api-id $API_ID --resource-id $ROOT_ID --http-method ANY 2>/dev/null; then
-            echo "🔧 Configurando método ANY para root..."
-            aws apigateway put-method \
-              --rest-api-id $API_ID \
-              --resource-id $ROOT_ID \
-              --http-method ANY \
-              --authorization-type NONE
+          echo "🔧 Configurando método ANY para root..."
+          aws apigateway put-method \
+            --rest-api-id $API_ID \
+            --resource-id $ROOT_ID \
+            --http-method ANY \
+            --authorization-type NONE
 
-            aws apigateway put-integration \
-              --rest-api-id $API_ID \
-              --resource-id $ROOT_ID \
-              --http-method ANY \
-              --type AWS_PROXY \
-              --integration-http-method POST \
-              --uri "arn:aws:apigateway:${{ env.REGION }}:lambda:path/2015-03-31/functions/arn:aws:lambda:${{ env.REGION }}:${{ secrets.AWS_ACCOUNT_ID }}:function:${{ env.FUNCTION_NAME }}/invocations"
-          fi
+          echo "🔧 Configurando integração para root..."
+          aws apigateway put-integration \
+            --rest-api-id $API_ID \
+            --resource-id $ROOT_ID \
+            --http-method ANY \
+            --type AWS_PROXY \
+            --integration-http-method POST \
+            --uri "arn:aws:apigateway:${{ env.REGION }}:lambda:path/2015-03-31/functions/arn:aws:lambda:${{ env.REGION }}:${{ secrets.AWS_ACCOUNT_ID }}:function:${{ env.FUNCTION_NAME }}/invocations"
 
-          if ! aws apigateway get-method --rest-api-id $API_ID --resource-id $PROXY_ID --http-method ANY 2>/dev/null; then
-            echo "🔧 Configurando método ANY para proxy..."
-            aws apigateway put-method \
-              --rest-api-id $API_ID \
-              --resource-id $PROXY_ID \
-              --http-method ANY \
-              --authorization-type NONE
+          echo "🔧 Configurando método ANY para proxy..."
+          aws apigateway put-method \
+            --rest-api-id $API_ID \
+            --resource-id $PROXY_ID \
+            --http-method ANY \
+            --authorization-type NONE
 
-            aws apigateway put-integration \
-              --rest-api-id $API_ID \
-              --resource-id $PROXY_ID \
-              --http-method ANY \
-              --type AWS_PROXY \
-              --integration-http-method POST \
-              --uri "arn:aws:apigateway:${{ env.REGION }}:lambda:path/2015-03-31/functions/arn:aws:lambda:${{ env.REGION }}:${{ secrets.AWS_ACCOUNT_ID }}:function:${{ env.FUNCTION_NAME }}/invocations"
-          fi
+          echo "🔧 Configurando integração para proxy..."
+          aws apigateway put-integration \
+            --rest-api-id $API_ID \
+            --resource-id $PROXY_ID \
+            --http-method ANY \
+            --type AWS_PROXY \
+            --integration-http-method POST \
+            --uri "arn:aws:apigateway:${{ env.REGION }}:lambda:path/2015-03-31/functions/arn:aws:lambda:${{ env.REGION }}:${{ secrets.AWS_ACCOUNT_ID }}:function:${{ env.FUNCTION_NAME }}/invocations"
+
+          echo "✅ Configuração do API Gateway concluída!"
 
       - name: Grant API Gateway Permission
         run: |
