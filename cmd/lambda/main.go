@@ -59,6 +59,9 @@ func (h *LambdaHandler) HandleRequest(ctx context.Context, request events.APIGat
 		log.Printf("DEBUG - Final URL: %s", url)
 	}
 
+	url = "http://localhost" + url
+	log.Printf("DEBUG - URL completa: %s", url)
+
 	httpReq, err := http.NewRequest(request.HTTPMethod, url, strings.NewReader(request.Body))
 	if err != nil {
 		return events.APIGatewayProxyResponse{
@@ -73,6 +76,12 @@ func (h *LambdaHandler) HandleRequest(ctx context.Context, request events.APIGat
 	for key, value := range request.Headers {
 		httpReq.Header.Set(key, value)
 	}
+
+	httpReq.URL.RawQuery = httpReq.URL.Query().Encode()
+	log.Printf("DEBUG - Raw Query: %s", httpReq.URL.RawQuery)
+
+	httpReq.URL.RawQuery = httpReq.URL.Query().Encode()
+	log.Printf("DEBUG - Raw Query: %s", httpReq.URL.RawQuery)
 
 	response := &responseWriter{
 		headers: make(map[string]string),
