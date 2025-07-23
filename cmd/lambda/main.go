@@ -42,6 +42,12 @@ func NewLambdaHandler() *LambdaHandler {
 func (h *LambdaHandler) HandleRequest(ctx context.Context, request events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
 	fiberHandler := adaptor.FiberApp(h.app)
 
+	log.Printf("=== LAMBDA INICIADA ===")
+	log.Printf("DEBUG - HTTP Method: %s", request.HTTPMethod)
+	log.Printf("DEBUG - Path: %s", request.Path)
+	log.Printf("DEBUG - QueryStringParameters: %v", request.QueryStringParameters)
+	log.Printf("DEBUG - Headers: %v", request.Headers)
+
 	url := request.Path
 	if len(request.QueryStringParameters) > 0 {
 		params := make([]string, 0, len(request.QueryStringParameters))
@@ -49,6 +55,7 @@ func (h *LambdaHandler) HandleRequest(ctx context.Context, request events.APIGat
 			params = append(params, key+"="+value)
 		}
 		url += "?" + strings.Join(params, "&")
+		log.Printf("DEBUG - Final URL: %s", url)
 	}
 
 	httpReq, err := http.NewRequest(request.HTTPMethod, url, strings.NewReader(request.Body))
