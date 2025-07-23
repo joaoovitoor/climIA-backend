@@ -91,6 +91,11 @@ jobs:
             
             echo "✅ Código atualizado com sucesso!"
             
+            echo "⏳ Aguardando função ficar atualizada antes de configurar..."
+            aws lambda wait function-updated \
+              --function-name ${{ env.FUNCTION_NAME }} \
+              --region ${{ env.REGION }}
+            
             echo "⚙️ Atualizando configuração..."
             aws lambda update-function-configuration \
               --function-name ${{ env.FUNCTION_NAME }} \
