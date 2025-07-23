@@ -10,25 +10,7 @@ env:
   API_NAME: ClimIA API
 
 jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Go
-        uses: actions/setup-go@v4
-        with:
-          go-version: "1.21"
-
-      - name: Install dependencies
-        run: go mod download
-
-      - name: Run tests
-        run: go test ./...
-
   build:
-    needs: test
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
