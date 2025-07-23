@@ -114,6 +114,11 @@ jobs:
               --memory-size 512 \
               --environment Variables="{DB_CONNECTION_STRING=\"${{ secrets.DB_CONNECTION_STRING }}\"}"
             
+            echo "⏳ Aguardando função ficar ativa..."
+            aws lambda wait function-active \
+              --function-name ${{ env.FUNCTION_NAME }} \
+              --region ${{ env.REGION }}
+            
             echo "✅ Função criada com sucesso!"
           fi
 
@@ -233,6 +238,11 @@ jobs:
             --stage-name prod \
             --description "Deploy via GitHub Actions - $(date)" \
             --query 'id' --output text)
+
+          echo "⏳ Aguardando deploy ficar disponível..."
+          aws apigateway get-deployment \
+            --rest-api-id $API_ID \
+            --deployment-id $DEPLOYMENT_ID
 
           echo "✅ Deploy concluído! Deployment ID: $DEPLOYMENT_ID"
 
