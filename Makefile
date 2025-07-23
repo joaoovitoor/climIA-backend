@@ -7,7 +7,7 @@ REGION=us-east-1
 # Build para Lambda
 build:
 	@echo "📦 Build para Lambda..."
-	GOOS=linux GOARCH=amd64 go build -o bootstrap cmd/api/main.go
+	GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o bootstrap cmd/lambda/main.go
 	zip function.zip bootstrap
 	@echo "✅ Build concluído!"
 

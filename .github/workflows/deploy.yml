@@ -42,8 +42,11 @@ jobs:
 
       - name: Build for Lambda
         run: |
-          GOOS=linux GOARCH=amd64 go build -o bootstrap cmd/lambda/main.go
+          echo "🔨 Building for Lambda..."
+          GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o bootstrap cmd/lambda/main.go
+          echo "📦 Creating ZIP file..."
           zip function.zip bootstrap
+          echo "📊 ZIP size: $(du -h function.zip | cut -f1)"
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v3

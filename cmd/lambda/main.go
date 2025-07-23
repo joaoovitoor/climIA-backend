@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"climia-backend/config"
-	appconfig "climia-backend/internal/config"
 	"climia-backend/internal/database"
 	"climia-backend/internal/handlers"
 	"climia-backend/internal/services"
@@ -24,7 +23,6 @@ type LambdaHandler struct {
 
 func NewLambdaHandler() *LambdaHandler {
 	dbConfig := config.LoadConfig()
-	appConfig := appconfig.LoadAppConfig()
 
 	db := database.NewConnection(dbConfig)
 	weatherRepo := database.NewWeatherRepository(db)
@@ -54,7 +52,7 @@ func NewLambdaHandler() *LambdaHandler {
 
 func (h *LambdaHandler) HandleRequest(ctx context.Context, request events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
 	// Converter APIGatewayProxyRequest para Fiber Context
-	fiberHandler := adaptor.FiberHandler(h.app)
+	fiberHandler := adaptor.FiberApp(h.app)
 
 	// Criar HTTP request
 	httpReq, err := http.NewRequest(request.HTTPMethod, request.Path, strings.NewReader(request.Body))
