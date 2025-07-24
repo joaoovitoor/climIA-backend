@@ -23,7 +23,6 @@ func NewWeatherHandler(service *services.WeatherService, config *config.Config) 
 	}
 }
 
-// AuthMiddleware valida o Bearer Token
 func (h *WeatherHandler) AuthMiddleware(c *fiber.Ctx) error {
 	authHeader := c.Get("Authorization")
 	if authHeader == "" {
@@ -32,14 +31,12 @@ func (h *WeatherHandler) AuthMiddleware(c *fiber.Ctx) error {
 		})
 	}
 
-	// Verifica se é Bearer Token
 	if !strings.HasPrefix(authHeader, "Bearer ") {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 			"error": "Invalid authorization format. Use: Bearer <token>",
 		})
 	}
 
-	// Extrai o token
 	token := strings.TrimPrefix(authHeader, "Bearer ")
 	if token != h.config.APIToken {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{

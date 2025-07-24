@@ -33,7 +33,6 @@ func NewLambdaHandler() *LambdaHandler {
 	}
 }
 
-// validateAuth valida o Bearer Token
 func (h *LambdaHandler) validateAuth(request events.APIGatewayProxyRequest) bool {
 	authHeader := request.Headers["Authorization"]
 	if authHeader == "" {
@@ -51,7 +50,6 @@ func (h *LambdaHandler) validateAuth(request events.APIGatewayProxyRequest) bool
 func (h *LambdaHandler) HandleRequest(ctx context.Context, request events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
 	log.Printf("Lambda request: %s %s", request.HTTPMethod, request.Path)
 
-	// Headers CORS
 	corsHeaders := map[string]string{
 		"Content-Type":                     "application/json",
 		"Access-Control-Allow-Origin":      "*",
@@ -60,7 +58,6 @@ func (h *LambdaHandler) HandleRequest(ctx context.Context, request events.APIGat
 		"Access-Control-Allow-Credentials": "true",
 	}
 
-	// Handle OPTIONS request (preflight)
 	if request.HTTPMethod == "OPTIONS" {
 		return events.APIGatewayProxyResponse{
 			StatusCode: 200,
@@ -78,7 +75,6 @@ func (h *LambdaHandler) HandleRequest(ctx context.Context, request events.APIGat
 	}
 
 	if request.Path == "/" {
-		// Valida autenticação (exceto para health check)
 		if !h.validateAuth(request) {
 			return events.APIGatewayProxyResponse{
 				StatusCode: 401,
