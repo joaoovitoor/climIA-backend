@@ -7,4 +7,5 @@ lambda
 *.bin
 .env
 .env.local
-.DS_Store 
+.DS_Store
+tmp/ 

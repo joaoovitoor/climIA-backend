@@ -1,7 +1,10 @@
 package weather
 
 import (
+	"database/sql"
 	"fmt"
+	"math"
+	"sort"
 	"time"
 )
 
@@ -18,61 +21,264 @@ func (s *Service) CalculateForecast(req WeatherRequest) ([]WeatherResponse, erro
 		return nil, fmt.Errorf("cidade e estado são obrigatórios")
 	}
 
-	var dataInicio, dataFim *time.Time
-
 	if req.Data != "" {
 		data, err := time.Parse("2006-01-02", req.Data)
 		if err != nil {
 			return nil, fmt.Errorf("formato de data inválido. Use YYYY-MM-DD")
 		}
-		weather, err := s.repository.GetWeatherByDate(req.Cidade, req.Estado, data)
+
+		forecast, err := s.calculateForecastForDate(req.Cidade, req.Estado, data)
 		if err != nil {
-			return nil, fmt.Errorf("dados não encontrados para a data especificada")
+			return nil, err
 		}
-		return []WeatherResponse{s.convertToResponse(*weather)}, nil
+
+		return []WeatherResponse{forecast}, nil
 	}
 
-	if req.DataInicio != "" {
-		data, err := time.Parse("2006-01-02", req.DataInicio)
+	if req.DataInicio != "" && req.DataFim != "" {
+		dataInicio, err := time.Parse("2006-01-02", req.DataInicio)
 		if err != nil {
-			return nil, fmt.Errorf("formato de data de início inválido. Use YYYY-MM-DD")
+			return nil, fmt.Errorf("formato de data início inválido. Use YYYY-MM-DD")
 		}
-		dataInicio = &data
-	}
 
-	if req.DataFim != "" {
-		data, err := time.Parse("2006-01-02", req.DataFim)
+		dataFim, err := time.Parse("2006-01-02", req.DataFim)
 		if err != nil {
-			return nil, fmt.Errorf("formato de data de fim inválido. Use YYYY-MM-DD")
+			return nil, fmt.Errorf("formato de data fim inválido. Use YYYY-MM-DD")
 		}
-		dataFim = &data
+
+		return s.calculateForecastForPeriod(req.Cidade, req.Estado, dataInicio, dataFim)
 	}
 
-	weatherData, err := s.repository.GetWeatherData(req.Cidade, req.Estado, dataInicio, dataFim)
-	if err != nil {
-		return nil, fmt.Errorf("erro ao buscar dados meteorológicos: %v", err)
-	}
-
-	if len(weatherData) == 0 {
-		return nil, fmt.Errorf("nenhum dado encontrado para %s, %s", req.Cidade, req.Estado)
-	}
-
-	var responses []WeatherResponse
-	for _, weather := range weatherData {
-		responses = append(responses, s.convertToResponse(weather))
-	}
-
-	return responses, nil
+	return nil, fmt.Errorf("deve fornecer data ou intervalo de datas")
 }
 
-func (s *Service) convertToResponse(weather Weather) WeatherResponse {
-	return WeatherResponse{
-		Cidade:            weather.Cidade,
-		Estado:            weather.Estado,
-		Data:              weather.Data.Format("2006-01-02"),
-		TemperaturaMinima: weather.TemperaturaMinima,
-		TemperaturaMaxima: weather.TemperaturaMaxima,
-		TemperaturaMedia:  weather.TemperaturaMedia,
-		Precipitacao:      weather.Precipitacao,
+func (s *Service) calculateForecastForDate(cidade, estado string, data time.Time) (WeatherResponse, error) {
+	dia := data.Day()
+	mes := int(data.Month())
+	ano := data.Year()
+
+	dadosHistoricos, err := s.buscarDadosHistoricosParaTendencia(cidade, estado)
+	if err != nil {
+		return WeatherResponse{}, fmt.Errorf("erro ao buscar dados históricos: %v", err)
 	}
+
+	dadosDia := filtrarDadosPorDiaMes(dadosHistoricos, dia, mes)
+	if len(dadosDia) == 0 {
+		return WeatherResponse{}, fmt.Errorf("não há dados históricos para %s/%s no dia %d/%d", cidade, estado, dia, mes)
+	}
+
+	previsao := s.calcularPrevisaoInteligente(dadosDia, ano)
+	if previsao == nil {
+		return WeatherResponse{}, fmt.Errorf("erro ao calcular previsão para %s/%s", cidade, estado)
+	}
+
+	return WeatherResponse{
+		Data:              data.Format("2006-01-02"),
+		TemperaturaMinima: previsao["minima"],
+		TemperaturaMaxima: previsao["maxima"],
+		TemperaturaMedia:  previsao["media"],
+		Cidade:            cidade,
+		Estado:            estado,
+		Precipitacao:      previsao["precipitacao"],
+	}, nil
+}
+
+func (s *Service) calculateForecastForPeriod(cidade, estado string, dataInicio, dataFim time.Time) ([]WeatherResponse, error) {
+	var previsoes []WeatherResponse
+
+	dadosHistoricos, err := s.buscarDadosHistoricosParaTendencia(cidade, estado)
+	if err != nil {
+		return nil, fmt.Errorf("erro ao buscar dados históricos: %v", err)
+	}
+
+	if len(dadosHistoricos) == 0 {
+		return nil, fmt.Errorf("não há dados históricos para %s/%s", cidade, estado)
+	}
+
+	for data := dataInicio; !data.After(dataFim); data = data.AddDate(0, 0, 1) {
+		dia := data.Day()
+		mes := int(data.Month())
+		ano := data.Year()
+
+		dadosDia := filtrarDadosPorDiaMes(dadosHistoricos, dia, mes)
+		if len(dadosDia) == 0 {
+			continue
+		}
+
+		previsao := s.calcularPrevisaoInteligente(dadosDia, ano)
+		if previsao == nil {
+			continue
+		}
+
+		previsaoResponse := WeatherResponse{
+			Data:              data.Format("2006-01-02"),
+			TemperaturaMinima: previsao["minima"],
+			TemperaturaMaxima: previsao["maxima"],
+			TemperaturaMedia:  previsao["media"],
+			Cidade:            cidade,
+			Estado:            estado,
+			Precipitacao:      previsao["precipitacao"],
+		}
+
+		previsoes = append(previsoes, previsaoResponse)
+	}
+
+	if len(previsoes) == 0 {
+		return nil, fmt.Errorf("não há dados históricos para %s/%s no intervalo especificado", cidade, estado)
+	}
+
+	return previsoes, nil
+}
+
+func (s *Service) buscarDadosHistoricosParaTendencia(cidade, estado string) ([]map[string]interface{}, error) {
+	query := `
+		SELECT 
+			EXTRACT(DAY FROM data) as dia,
+			EXTRACT(MONTH FROM data) as mes,
+			EXTRACT(YEAR FROM data) as ano,
+			AVG(temperatura_minima) as media_minima,
+			AVG(temperatura_media) as media_media,
+			AVG(temperatura_maxima) as media_maxima,
+			AVG(precipitacao) as media_precipitacao
+		FROM previsao_tempo 
+		WHERE cidade = ? 
+			AND estado = ?
+			AND data >= DATE_SUB(CURDATE(), INTERVAL 5 YEAR)
+			AND data < CURDATE()
+		GROUP BY EXTRACT(DAY FROM data), EXTRACT(MONTH FROM data), EXTRACT(YEAR FROM data)
+		ORDER BY EXTRACT(YEAR FROM data), EXTRACT(MONTH FROM data), EXTRACT(DAY FROM data)
+	`
+
+	rows, err := s.repository.db.Raw(query, cidade, estado).Rows()
+	if err != nil {
+		return nil, fmt.Errorf("erro na query: %v", err)
+	}
+	defer rows.Close()
+
+	var dados []map[string]interface{}
+	for rows.Next() {
+		var dia, mes, ano int
+		var mediaMinima, mediaMedia, mediaMaxima, mediaPrecipitacao sql.NullFloat64
+
+		err := rows.Scan(&dia, &mes, &ano, &mediaMinima, &mediaMedia, &mediaMaxima, &mediaPrecipitacao)
+		if err != nil {
+			return nil, fmt.Errorf("erro ao scan: %v", err)
+		}
+
+		dado := map[string]interface{}{
+			"dia":                dia,
+			"mes":                mes,
+			"ano":                ano,
+			"media_minima":       mediaMinima.Float64,
+			"media_media":        mediaMedia.Float64,
+			"media_maxima":       mediaMaxima.Float64,
+			"media_precipitacao": mediaPrecipitacao.Float64,
+		}
+		dados = append(dados, dado)
+	}
+
+	return dados, nil
+}
+
+func filtrarDadosPorDiaMes(dados []map[string]interface{}, dia, mes int) []map[string]interface{} {
+	var dadosFiltrados []map[string]interface{}
+
+	for _, dado := range dados {
+		if dado["dia"].(int) == dia && dado["mes"].(int) == mes {
+			dadosFiltrados = append(dadosFiltrados, dado)
+		}
+	}
+
+	return dadosFiltrados
+}
+
+func (s *Service) calcularPrevisaoInteligente(dadosHistoricos []map[string]interface{}, anoAtual int) map[string]float64 {
+	if len(dadosHistoricos) == 0 {
+		return nil
+	}
+
+	sort.Slice(dadosHistoricos, func(i, j int) bool {
+		return dadosHistoricos[i]["ano"].(int) < dadosHistoricos[j]["ano"].(int)
+	})
+
+	tendenciaMinima := s.calcularTendencia(dadosHistoricos, "media_minima")
+	tendenciaMedia := s.calcularTendencia(dadosHistoricos, "media_media")
+	tendenciaMaxima := s.calcularTendencia(dadosHistoricos, "media_maxima")
+
+	ultimoDado := dadosHistoricos[len(dadosHistoricos)-1]
+	ultimoAno := ultimoDado["ano"].(int)
+	anosDesdeUltimo := anoAtual - ultimoAno
+
+	previsaoMinima := s.aplicarTendencia(ultimoDado["media_minima"].(float64), tendenciaMinima, anosDesdeUltimo)
+	previsaoMedia := s.aplicarTendencia(ultimoDado["media_media"].(float64), tendenciaMedia, anosDesdeUltimo)
+	previsaoMaxima := s.aplicarTendencia(ultimoDado["media_maxima"].(float64), tendenciaMaxima, anosDesdeUltimo)
+
+	previsaoPrecipitacao := s.calcularMediaPrecipitacao(dadosHistoricos)
+
+	return map[string]float64{
+		"minima":       s.formatarTemperatura(previsaoMinima),
+		"media":        s.formatarTemperatura(previsaoMedia),
+		"maxima":       s.formatarTemperatura(previsaoMaxima),
+		"precipitacao": s.formatarPrecipitacao(previsaoPrecipitacao),
+	}
+}
+
+func (s *Service) calcularTendencia(dados []map[string]interface{}, campo string) float64 {
+	if len(dados) < 2 {
+		return 0
+	}
+
+	n := len(dados)
+	var sumX, sumY, sumXY, sumX2 float64
+
+	for i, dado := range dados {
+		x := float64(i)
+		y := dado[campo].(float64)
+
+		sumX += x
+		sumY += y
+		sumXY += x * y
+		sumX2 += x * x
+	}
+
+	denominador := float64(n)*sumX2 - sumX*sumX
+	if denominador == 0 {
+		return 0
+	}
+
+	tendencia := (float64(n)*sumXY - sumX*sumY) / denominador
+	return tendencia
+}
+
+func (s *Service) aplicarTendencia(valorBase, tendencia float64, anos int) float64 {
+	fatorDecaimento := math.Exp(-float64(anos) * 0.1)
+	ajuste := tendencia * float64(anos) * fatorDecaimento
+
+	return valorBase + ajuste
+}
+
+func (s *Service) calcularMediaPrecipitacao(dadosOrdenados []map[string]interface{}) float64 {
+	ultimos3Anos := dadosOrdenados
+	if len(dadosOrdenados) > 3 {
+		ultimos3Anos = dadosOrdenados[len(dadosOrdenados)-3:]
+	}
+
+	if len(ultimos3Anos) == 0 {
+		return 0
+	}
+
+	var somaPrecipitacao float64
+	for _, dado := range ultimos3Anos {
+		somaPrecipitacao += dado["media_precipitacao"].(float64)
+	}
+
+	return somaPrecipitacao / float64(len(ultimos3Anos))
+}
+
+func (s *Service) formatarTemperatura(valor float64) float64 {
+	return math.Round(valor)
+}
+
+func (s *Service) formatarPrecipitacao(valor float64) float64 {
+	return math.Round(valor)
 } 
