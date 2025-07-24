@@ -1,29 +1,27 @@
-package handlers
+package weather
 
 import (
 	"log"
 	"strings"
 
-	"climia-backend/config"
-	"climia-backend/internal/models"
-	"climia-backend/internal/services"
+	"climia-backend/configs"
 
 	"github.com/gofiber/fiber/v2"
 )
 
-type WeatherHandler struct {
-	weatherService *services.WeatherService
-	config         *config.Config
+type Handler struct {
+	service *Service
+	config  *configs.Config
 }
 
-func NewWeatherHandler(service *services.WeatherService, config *config.Config) *WeatherHandler {
-	return &WeatherHandler{
-		weatherService: service,
-		config:         config,
+func NewHandler(service *Service, config *configs.Config) *Handler {
+	return &Handler{
+		service: service,
+		config:  config,
 	}
 }
 
-func (h *WeatherHandler) AuthMiddleware(c *fiber.Ctx) error {
+func (h *Handler) AuthMiddleware(c *fiber.Ctx) error {
 	authHeader := c.Get("Authorization")
 	if authHeader == "" {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
@@ -47,17 +45,11 @@ func (h *WeatherHandler) AuthMiddleware(c *fiber.Ctx) error {
 	return c.Next()
 }
 
-func (h *WeatherHandler) CalculateForecast(c *fiber.Ctx) error {
-	var req models.WeatherRequest
+func (h *Handler) CalculateForecast(c *fiber.Ctx) error {
+	var req WeatherRequest
 	c.QueryParser(&req)
 
-	if req.Cidade == "" || req.Estado == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "cidade e estado são obrigatórios",
-		})
-	}
-
-	forecasts, err := h.weatherService.CalculateForecast(req)
+	forecasts, err := h.service.CalculateForecast(req)
 	if err != nil {
 		log.Printf("Erro ao calcular previsão: %v", err)
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -70,4 +62,4 @@ func (h *WeatherHandler) CalculateForecast(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(forecasts)
-}
+} 

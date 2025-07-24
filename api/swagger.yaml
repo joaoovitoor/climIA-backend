@@ -1,0 +1,155 @@
+openapi: 3.0.0
+info:
+  title: ClimIA API
+  description: API para previsão do tempo
+  version: 1.0.0
+  contact:
+    name: ClimIA Team
+    email: support@climia.com
+
+servers:
+  - url: http://localhost:8080
+    description: Servidor de desenvolvimento
+  - url: https://api.climia.com
+    description: Servidor de produção
+
+paths:
+  /health:
+    get:
+      summary: Health check
+      description: Verifica se a API está funcionando
+      tags:
+        - Health
+      responses:
+        "200":
+          description: API funcionando
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "ok"
+                  message:
+                    type: string
+                    example: "ClimIA API is running"
+
+  /:
+    get:
+      summary: Previsão do tempo
+      description: Retorna previsão do tempo para uma cidade e estado
+      tags:
+        - Weather
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: cidade
+          in: query
+          required: true
+          description: Nome da cidade
+          schema:
+            type: string
+            example: "São Paulo"
+        - name: estado
+          in: query
+          required: true
+          description: Sigla do estado
+          schema:
+            type: string
+            example: "SP"
+        - name: data
+          in: query
+          required: false
+          description: Data específica (YYYY-MM-DD)
+          schema:
+            type: string
+            example: "2024-01-15"
+        - name: datainicio
+          in: query
+          required: false
+          description: Data de início do período (YYYY-MM-DD)
+          schema:
+            type: string
+            example: "2024-01-01"
+        - name: datafim
+          in: query
+          required: false
+          description: Data de fim do período (YYYY-MM-DD)
+          schema:
+            type: string
+            example: "2024-01-31"
+      responses:
+        "200":
+          description: Previsão do tempo
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/WeatherResponse"
+                  - type: array
+                    items:
+                      $ref: "#/components/schemas/WeatherResponse"
+        "400":
+          description: Parâmetros inválidos
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Token de autenticação inválido
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    WeatherResponse:
+      type: object
+      properties:
+        cidade:
+          type: string
+          example: "São Paulo"
+        estado:
+          type: string
+          example: "SP"
+        data:
+          type: string
+          format: date
+          example: "2024-01-15"
+        temperatura_minima:
+          type: number
+          format: float
+          example: 18.5
+        temperatura_maxima:
+          type: number
+          format: float
+          example: 28.3
+        temperatura_media:
+          type: number
+          format: float
+          example: 23.4
+        precipitacao:
+          type: number
+          format: float
+          example: 0.0
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          example: "cidade e estado são obrigatórios"
+
+tags:
+  - name: Health
+    description: Endpoints de verificação de saúde
+  - name: Weather
+    description: Endpoints de previsão do tempo

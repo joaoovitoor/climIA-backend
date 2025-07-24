@@ -1,6 +1,10 @@
 main
 bootstrap
 function.zip
+server
+lambda
+*.exe
+*.bin
 .env
 .env.local
 .DS_Store 
