@@ -46,8 +46,22 @@ func (h *Handler) AuthMiddleware(c *fiber.Ctx) error {
 }
 
 func (h *Handler) CalculateForecast(c *fiber.Ctx) error {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("Panic recovered in CalculateForecast: %v", r)
+			c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"error": "Erro interno do servidor",
+			})
+		}
+	}()
+
 	var req WeatherRequest
-	c.QueryParser(&req)
+	if err := c.QueryParser(&req); err != nil {
+		log.Printf("Erro ao fazer parse dos parâmetros: %v", err)
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Parâmetros inválidos",
+		})
+	}
 
 	forecasts, err := h.service.CalculateForecast(req)
 	if err != nil {

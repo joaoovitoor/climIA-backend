@@ -46,7 +46,7 @@ func (s *Service) CalculateForecast(req WeatherRequest) ([]WeatherResponse, erro
 			return nil, fmt.Errorf("formato de data fim inválido. Use YYYY-MM-DD")
 		}
 
-		return s.getWeatherDataForPeriod(req.Cidade, req.Estado, dataInicio, dataFim)
+		return s.getWeatherDataForPeriodOptimized(req.Cidade, req.Estado, dataInicio, dataFim)
 	}
 
 	return nil, fmt.Errorf("deve fornecer data ou intervalo de datas")
@@ -74,6 +74,85 @@ func (s *Service) getWeatherDataForDate(cidade, estado string, data time.Time) (
 	} else {
 		return s.calculateForecastForDate(cidade, estado, data)
 	}
+}
+
+func (s *Service) getWeatherDataForPeriodOptimized(cidade, estado string, dataInicio, dataFim time.Time) ([]WeatherResponse, error) {
+	dadosHistoricos, err := s.buscarDadosHistoricosParaTendencia(cidade, estado)
+	if err != nil {
+		return nil, fmt.Errorf("erro ao buscar dados históricos: %v", err)
+	}
+
+	dadosExistentes, err := s.repository.GetWeatherData(cidade, estado, &dataInicio, &dataFim)
+	if err != nil {
+		return nil, fmt.Errorf("erro ao buscar dados existentes: %v", err)
+	}
+
+	dadosExistentesMap := make(map[string]*Weather)
+	for i := range dadosExistentes {
+		dataStr := dadosExistentes[i].Data.Format("2006-01-02")
+		dadosExistentesMap[dataStr] = &dadosExistentes[i]
+	}
+
+	var resultados []WeatherResponse
+	hoje := time.Now().Truncate(24 * time.Hour)
+
+	for data := dataInicio; !data.After(dataFim); data = data.AddDate(0, 0, 1) {
+		dataStr := data.Format("2006-01-02")
+		
+		if weather, exists := dadosExistentesMap[dataStr]; exists {
+			resultados = append(resultados, WeatherResponse{
+				Data:              dataStr,
+				TemperaturaMinima: weather.TemperaturaMinima,
+				TemperaturaMaxima: weather.TemperaturaMaxima,
+				TemperaturaMedia:  weather.TemperaturaMedia,
+				Cidade:            weather.Cidade,
+				Estado:            weather.Estado,
+				Precipitacao:      weather.Precipitacao,
+			})
+			continue
+		}
+
+		if data.Truncate(24 * time.Hour).After(hoje) || data.Truncate(24 * time.Hour).Equal(hoje) {
+			previsao, err := s.calculateForecastForDateOptimized(cidade, estado, data, dadosHistoricos)
+			if err != nil {
+				fmt.Printf("Erro ao calcular previsão para %s: %v\n", dataStr, err)
+				continue
+			}
+			resultados = append(resultados, previsao)
+		}
+	}
+
+	if len(resultados) == 0 {
+		return nil, fmt.Errorf("nenhum dado encontrado para %s, %s", cidade, estado)
+	}
+
+	return resultados, nil
+}
+
+func (s *Service) calculateForecastForDateOptimized(cidade, estado string, data time.Time, dadosHistoricos []map[string]interface{}) (WeatherResponse, error) {
+	dia := data.Day()
+	mes := int(data.Month())
+	ano := data.Year()
+
+	dadosDia := filtrarDadosPorDiaMes(dadosHistoricos, dia, mes)
+	if len(dadosDia) == 0 {
+		return WeatherResponse{}, fmt.Errorf("não há dados históricos para %s/%s no dia %d/%d", cidade, estado, dia, mes)
+	}
+
+	previsao := s.calcularPrevisaoInteligente(dadosDia, ano)
+	if previsao == nil {
+		return WeatherResponse{}, fmt.Errorf("erro ao calcular previsão para %s/%s", cidade, estado)
+	}
+
+	return WeatherResponse{
+		Data:              data.Format("2006-01-02"),
+		TemperaturaMinima: previsao["minima"],
+		TemperaturaMaxima: previsao["maxima"],
+		TemperaturaMedia:  previsao["media"],
+		Cidade:            cidade,
+		Estado:            estado,
+		Precipitacao:      previsao["precipitacao"],
+	}, nil
 }
 
 func (s *Service) calculateForecastForDate(cidade, estado string, data time.Time) (WeatherResponse, error) {
@@ -105,24 +184,6 @@ func (s *Service) calculateForecastForDate(cidade, estado string, data time.Time
 		Estado:            estado,
 		Precipitacao:      previsao["precipitacao"],
 	}, nil
-}
-
-func (s *Service) getWeatherDataForPeriod(cidade, estado string, dataInicio, dataFim time.Time) ([]WeatherResponse, error) {
-	var resultados []WeatherResponse
-
-	for data := dataInicio; !data.After(dataFim); data = data.AddDate(0, 0, 1) {
-		weather, err := s.getWeatherDataForDate(cidade, estado, data)
-		if err != nil {
-			continue
-		}
-		resultados = append(resultados, weather)
-	}
-
-	if len(resultados) == 0 {
-		return nil, fmt.Errorf("nenhum dado encontrado para %s, %s", cidade, estado)
-	}
-
-	return resultados, nil
 }
 
 func (s *Service) buscarDadosHistoricosParaTendencia(cidade, estado string) ([]map[string]interface{}, error) {
