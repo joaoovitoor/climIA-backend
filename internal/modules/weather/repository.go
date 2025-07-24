@@ -16,7 +16,7 @@ func NewRepository(db *gorm.DB) *Repository {
 
 func (r *Repository) GetWeatherData(cidade, estado string, dataInicio, dataFim *time.Time) ([]Weather, error) {
 	var weatherData []Weather
-	query := r.db.Where("cidade = ? AND estado = ?", cidade, estado)
+	query := r.db.Table("previsao_tempo").Where("cidade = ? AND estado = ?", cidade, estado)
 
 	if dataInicio != nil && dataFim != nil {
 		query = query.Where("data BETWEEN ? AND ?", dataInicio, dataFim)
@@ -32,7 +32,7 @@ func (r *Repository) GetWeatherData(cidade, estado string, dataInicio, dataFim *
 
 func (r *Repository) GetWeatherByDate(cidade, estado string, data time.Time) (*Weather, error) {
 	var weather Weather
-	err := r.db.Where("cidade = ? AND estado = ? AND DATE(data) = DATE(?)", cidade, estado, data).First(&weather).Error
+	err := r.db.Table("previsao_tempo").Where("cidade = ? AND estado = ? AND DATE(data) = DATE(?)", cidade, estado, data).First(&weather).Error
 	if err != nil {
 		return nil, err
 	}
