@@ -2,24 +2,21 @@ package main
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
 	"log"
 
 	"climia-backend/config"
 	"climia-backend/internal/database"
 	"climia-backend/internal/handlers"
-	"climia-backend/internal/models"
 	"climia-backend/internal/services"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/adaptor"
 )
 
 type LambdaHandler struct {
-	app            *fiber.App
-	weatherService *services.WeatherService
+	app *fiber.App
 }
 
 func NewLambdaHandler() *LambdaHandler {
@@ -39,67 +36,24 @@ func NewLambdaHandler() *LambdaHandler {
 	})
 
 	return &LambdaHandler{
-		app:            app,
-		weatherService: weatherService,
+		app: app,
 	}
 }
 
 func (h *LambdaHandler) HandleRequest(ctx context.Context, request events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
-	log.Printf("=== LAMBDA INICIADA ===")
-	log.Printf("DEBUG - HTTP Method: %s", request.HTTPMethod)
-	log.Printf("DEBUG - Path: %s", request.Path)
-	log.Printf("DEBUG - QueryStringParameters: %v", request.QueryStringParameters)
-
-	if request.Path == "/health" {
+	log.Printf("Lambda request: %s %s", request.HTTPMethod, request.Path)
+	
+	response, err := adaptor.FiberApp(h.app)(ctx, request)
+	if err != nil {
+		log.Printf("Erro no handler: %v", err)
 		return events.APIGatewayProxyResponse{
-			StatusCode: 200,
+			StatusCode: 500,
 			Headers:    map[string]string{"Content-Type": "application/json"},
-			Body:       `{"status":"ok","message":"ClimIA API is running"}`,
+			Body:       `{"error":"Internal server error"}`,
 		}, nil
 	}
-
-	if request.Path == "/" {
-		var req models.WeatherRequest
-		for key, value := range request.QueryStringParameters {
-			switch key {
-			case "cidade":
-				req.Cidade = value
-			case "estado":
-				req.Estado = value
-			case "data":
-				req.Data = value
-			case "datainicio":
-				req.DataInicio = value
-			case "datafim":
-				req.DataFim = value
-			}
-		}
-
-		log.Printf("DEBUG - Parâmetros extraídos: cidade=%s, estado=%s, data=%s", req.Cidade, req.Estado, req.Data)
-
-		forecasts, err := h.weatherService.CalculateForecast(req)
-		if err != nil {
-			log.Printf("Erro ao calcular previsão: %v", err)
-			return events.APIGatewayProxyResponse{
-				StatusCode: 400,
-				Headers:    map[string]string{"Content-Type": "application/json"},
-				Body:       fmt.Sprintf(`{"error":"%s"}`, err.Error()),
-			}, nil
-		}
-
-		responseBody, _ := json.Marshal(forecasts)
-		return events.APIGatewayProxyResponse{
-			StatusCode: 200,
-			Headers:    map[string]string{"Content-Type": "application/json"},
-			Body:       string(responseBody),
-		}, nil
-	}
-
-	return events.APIGatewayProxyResponse{
-		StatusCode: 404,
-		Headers:    map[string]string{"Content-Type": "application/json"},
-		Body:       `{"error":"Not found"}`,
-	}, nil
+	
+	return response, nil
 }
 
 func main() {

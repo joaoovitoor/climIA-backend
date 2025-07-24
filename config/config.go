@@ -9,6 +9,8 @@ import (
 
 type Config struct {
 	DBConnectionString string
+	Port              string
+	Env               string
 }
 
 func LoadConfig() *Config {
@@ -19,6 +21,8 @@ func LoadConfig() *Config {
 
 	return &Config{
 		DBConnectionString: getEnv("DB_CONNECTION_STRING", "root:senha123@tcp(localhost:3306)/climia?parseTime=true"),
+		Port:              getEnv("PORT", "8080"),
+		Env:               getEnv("ENV", "development"),
 	}
 }
 
