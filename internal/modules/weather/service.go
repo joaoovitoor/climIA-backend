@@ -94,7 +94,6 @@ func (s *Service) getWeatherDataForPeriodOptimized(cidade, estado string, dataIn
 	}
 
 	var resultados []WeatherResponse
-	hoje := time.Now().Truncate(24 * time.Hour)
 
 	for data := dataInicio; !data.After(dataFim); data = data.AddDate(0, 0, 1) {
 		dataStr := data.Format("2006-01-02")
@@ -112,14 +111,12 @@ func (s *Service) getWeatherDataForPeriodOptimized(cidade, estado string, dataIn
 			continue
 		}
 
-		if data.Truncate(24 * time.Hour).After(hoje) || data.Truncate(24 * time.Hour).Equal(hoje) {
-			previsao, err := s.calculateForecastForDateOptimized(cidade, estado, data, dadosHistoricos)
-			if err != nil {
-				fmt.Printf("Erro ao calcular previsão para %s: %v\n", dataStr, err)
-				continue
-			}
-			resultados = append(resultados, previsao)
+		previsao, err := s.calculateForecastForDateOptimized(cidade, estado, data, dadosHistoricos)
+		if err != nil {
+			fmt.Printf("Erro ao calcular previsão para %s: %v\n", dataStr, err)
+			continue
 		}
+		resultados = append(resultados, previsao)
 	}
 
 	if len(resultados) == 0 {
