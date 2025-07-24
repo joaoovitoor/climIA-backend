@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"strings"
 
 	"climia-backend/config"
 	"climia-backend/internal/database"
@@ -17,6 +18,7 @@ import (
 
 type LambdaHandler struct {
 	weatherService *services.WeatherService
+	config         *config.Config
 }
 
 func NewLambdaHandler() *LambdaHandler {
@@ -27,7 +29,23 @@ func NewLambdaHandler() *LambdaHandler {
 
 	return &LambdaHandler{
 		weatherService: weatherService,
+		config:         dbConfig,
 	}
+}
+
+// validateAuth valida o Bearer Token
+func (h *LambdaHandler) validateAuth(request events.APIGatewayProxyRequest) bool {
+	authHeader := request.Headers["Authorization"]
+	if authHeader == "" {
+		return false
+	}
+
+	if !strings.HasPrefix(authHeader, "Bearer ") {
+		return false
+	}
+
+	token := strings.TrimPrefix(authHeader, "Bearer ")
+	return token == h.config.APIToken
 }
 
 func (h *LambdaHandler) HandleRequest(ctx context.Context, request events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
@@ -60,6 +78,15 @@ func (h *LambdaHandler) HandleRequest(ctx context.Context, request events.APIGat
 	}
 
 	if request.Path == "/" {
+		// Valida autenticação (exceto para health check)
+		if !h.validateAuth(request) {
+			return events.APIGatewayProxyResponse{
+				StatusCode: 401,
+				Headers:    corsHeaders,
+				Body:       `{"error":"Invalid API token. Use: Bearer <token>"}`,
+			}, nil
+		}
+
 		var req models.WeatherRequest
 		for key, value := range request.QueryStringParameters {
 			switch key {

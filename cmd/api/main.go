@@ -14,13 +14,12 @@ func main() {
 	appConfig := config.LoadConfig()
 
 	db := database.NewConnection(appConfig)
-
 	weatherRepo := database.NewWeatherRepository(db)
 	weatherService := services.NewWeatherService(weatherRepo)
-	weatherHandler := handlers.NewWeatherHandler(weatherService)
+	weatherHandler := handlers.NewWeatherHandler(weatherService, appConfig)
 
-	srv := server.NewServer(appConfig)
-	srv.Setup(weatherHandler)
+	server := server.NewServer(appConfig)
+	server.Setup(weatherHandler)
 
-	log.Fatal(srv.Start())
+	log.Fatal(server.Start())
 } 
