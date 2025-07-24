@@ -33,10 +33,28 @@ func NewLambdaHandler() *LambdaHandler {
 func (h *LambdaHandler) HandleRequest(ctx context.Context, request events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
 	log.Printf("Lambda request: %s %s", request.HTTPMethod, request.Path)
 
+	// Headers CORS
+	corsHeaders := map[string]string{
+		"Content-Type":                     "application/json",
+		"Access-Control-Allow-Origin":      "*",
+		"Access-Control-Allow-Methods":     "GET, POST, PUT, DELETE, OPTIONS",
+		"Access-Control-Allow-Headers":     "Content-Type, Authorization, X-Requested-With",
+		"Access-Control-Allow-Credentials": "true",
+	}
+
+	// Handle OPTIONS request (preflight)
+	if request.HTTPMethod == "OPTIONS" {
+		return events.APIGatewayProxyResponse{
+			StatusCode: 200,
+			Headers:    corsHeaders,
+			Body:       "",
+		}, nil
+	}
+
 	if request.Path == "/health" {
 		return events.APIGatewayProxyResponse{
 			StatusCode: 200,
-			Headers:    map[string]string{"Content-Type": "application/json"},
+			Headers:    corsHeaders,
 			Body:       `{"status":"ok","message":"ClimIA API is running"}`,
 		}, nil
 	}
@@ -61,7 +79,7 @@ func (h *LambdaHandler) HandleRequest(ctx context.Context, request events.APIGat
 		if req.Cidade == "" || req.Estado == "" {
 			return events.APIGatewayProxyResponse{
 				StatusCode: 400,
-				Headers:    map[string]string{"Content-Type": "application/json"},
+				Headers:    corsHeaders,
 				Body:       `{"error":"cidade e estado são obrigatórios"}`,
 			}, nil
 		}
@@ -71,7 +89,7 @@ func (h *LambdaHandler) HandleRequest(ctx context.Context, request events.APIGat
 			log.Printf("Erro ao calcular previsão: %v", err)
 			return events.APIGatewayProxyResponse{
 				StatusCode: 400,
-				Headers:    map[string]string{"Content-Type": "application/json"},
+				Headers:    corsHeaders,
 				Body:       fmt.Sprintf(`{"error":"%s"}`, err.Error()),
 			}, nil
 		}
@@ -79,14 +97,14 @@ func (h *LambdaHandler) HandleRequest(ctx context.Context, request events.APIGat
 		responseBody, _ := json.Marshal(forecasts)
 		return events.APIGatewayProxyResponse{
 			StatusCode: 200,
-			Headers:    map[string]string{"Content-Type": "application/json"},
+			Headers:    corsHeaders,
 			Body:       string(responseBody),
 		}, nil
 	}
 
 	return events.APIGatewayProxyResponse{
 		StatusCode: 404,
-		Headers:    map[string]string{"Content-Type": "application/json"},
+		Headers:    corsHeaders,
 		Body:       `{"error":"Not found"}`,
 	}, nil
 }
