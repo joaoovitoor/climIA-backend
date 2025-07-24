@@ -27,7 +27,7 @@ func (s *Service) CalculateForecast(req WeatherRequest) ([]WeatherResponse, erro
 			return nil, fmt.Errorf("formato de data inválido. Use YYYY-MM-DD")
 		}
 
-		forecast, err := s.calculateForecastForDate(req.Cidade, req.Estado, data)
+		forecast, err := s.getWeatherDataForDate(req.Cidade, req.Estado, data)
 		if err != nil {
 			return nil, err
 		}
@@ -46,10 +46,34 @@ func (s *Service) CalculateForecast(req WeatherRequest) ([]WeatherResponse, erro
 			return nil, fmt.Errorf("formato de data fim inválido. Use YYYY-MM-DD")
 		}
 
-		return s.calculateForecastForPeriod(req.Cidade, req.Estado, dataInicio, dataFim)
+		return s.getWeatherDataForPeriod(req.Cidade, req.Estado, dataInicio, dataFim)
 	}
 
 	return nil, fmt.Errorf("deve fornecer data ou intervalo de datas")
+}
+
+func (s *Service) getWeatherDataForDate(cidade, estado string, data time.Time) (WeatherResponse, error) {
+	hoje := time.Now().Truncate(24 * time.Hour)
+	dataTruncada := data.Truncate(24 * time.Hour)
+	
+	if dataTruncada.Before(hoje) {
+		weather, err := s.repository.GetWeatherByDate(cidade, estado, data)
+		if err != nil {
+			return WeatherResponse{}, fmt.Errorf("dados não encontrados para a data especificada")
+		}
+		
+		return WeatherResponse{
+			Data:              weather.Data.Format("2006-01-02"),
+			TemperaturaMinima: weather.TemperaturaMinima,
+			TemperaturaMaxima: weather.TemperaturaMaxima,
+			TemperaturaMedia:  weather.TemperaturaMedia,
+			Cidade:            weather.Cidade,
+			Estado:            weather.Estado,
+			Precipitacao:      weather.Precipitacao,
+		}, nil
+	} else {
+		return s.calculateForecastForDate(cidade, estado, data)
+	}
 }
 
 func (s *Service) calculateForecastForDate(cidade, estado string, data time.Time) (WeatherResponse, error) {
@@ -83,59 +107,30 @@ func (s *Service) calculateForecastForDate(cidade, estado string, data time.Time
 	}, nil
 }
 
-func (s *Service) calculateForecastForPeriod(cidade, estado string, dataInicio, dataFim time.Time) ([]WeatherResponse, error) {
-	var previsoes []WeatherResponse
-
-	dadosHistoricos, err := s.buscarDadosHistoricosParaTendencia(cidade, estado)
-	if err != nil {
-		return nil, fmt.Errorf("erro ao buscar dados históricos: %v", err)
-	}
-
-	if len(dadosHistoricos) == 0 {
-		return nil, fmt.Errorf("não há dados históricos para %s/%s", cidade, estado)
-	}
+func (s *Service) getWeatherDataForPeriod(cidade, estado string, dataInicio, dataFim time.Time) ([]WeatherResponse, error) {
+	var resultados []WeatherResponse
 
 	for data := dataInicio; !data.After(dataFim); data = data.AddDate(0, 0, 1) {
-		dia := data.Day()
-		mes := int(data.Month())
-		ano := data.Year()
-
-		dadosDia := filtrarDadosPorDiaMes(dadosHistoricos, dia, mes)
-		if len(dadosDia) == 0 {
+		weather, err := s.getWeatherDataForDate(cidade, estado, data)
+		if err != nil {
 			continue
 		}
-
-		previsao := s.calcularPrevisaoInteligente(dadosDia, ano)
-		if previsao == nil {
-			continue
-		}
-
-		previsaoResponse := WeatherResponse{
-			Data:              data.Format("2006-01-02"),
-			TemperaturaMinima: previsao["minima"],
-			TemperaturaMaxima: previsao["maxima"],
-			TemperaturaMedia:  previsao["media"],
-			Cidade:            cidade,
-			Estado:            estado,
-			Precipitacao:      previsao["precipitacao"],
-		}
-
-		previsoes = append(previsoes, previsaoResponse)
+		resultados = append(resultados, weather)
 	}
 
-	if len(previsoes) == 0 {
-		return nil, fmt.Errorf("não há dados históricos para %s/%s no intervalo especificado", cidade, estado)
+	if len(resultados) == 0 {
+		return nil, fmt.Errorf("nenhum dado encontrado para %s, %s", cidade, estado)
 	}
 
-	return previsoes, nil
+	return resultados, nil
 }
 
 func (s *Service) buscarDadosHistoricosParaTendencia(cidade, estado string) ([]map[string]interface{}, error) {
 	query := `
 		SELECT 
-			EXTRACT(DAY FROM data) as dia,
-			EXTRACT(MONTH FROM data) as mes,
-			EXTRACT(YEAR FROM data) as ano,
+			DAY(data) as dia,
+			MONTH(data) as mes,
+			YEAR(data) as ano,
 			AVG(temperatura_minima) as media_minima,
 			AVG(temperatura_media) as media_media,
 			AVG(temperatura_maxima) as media_maxima,
@@ -145,8 +140,8 @@ func (s *Service) buscarDadosHistoricosParaTendencia(cidade, estado string) ([]m
 			AND estado = ?
 			AND data >= DATE_SUB(CURDATE(), INTERVAL 5 YEAR)
 			AND data < CURDATE()
-		GROUP BY EXTRACT(DAY FROM data), EXTRACT(MONTH FROM data), EXTRACT(YEAR FROM data)
-		ORDER BY EXTRACT(YEAR FROM data), EXTRACT(MONTH FROM data), EXTRACT(DAY FROM data)
+		GROUP BY DAY(data), MONTH(data), YEAR(data)
+		ORDER BY YEAR(data), MONTH(data), DAY(data)
 	`
 
 	rows, err := s.repository.db.Raw(query, cidade, estado).Rows()
