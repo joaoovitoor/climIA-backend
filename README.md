@@ -4,21 +4,24 @@ API REST em Go para previsão climática baseada em dados históricos, com estru
 
 ## 🏗️ Arquitetura
 
-O projeto segue uma estrutura intermediária organizada:
+O projeto segue uma estrutura modular organizada:
 
-- **models/**: Entidades e DTOs
-- **services/**: Lógica de negócio
-- **handlers/**: Controllers HTTP
-- **database/**: Camada de dados e repositórios
-- **routes/**: Definição de rotas
-- **server/**: Configuração do servidor
+- **configs/**: Configurações da aplicação
+- **internal/modules/**: Módulos da aplicação
+  - **weather/**: Módulo de previsão do tempo
+    - **handler.go**: Controllers HTTP
+    - **service.go**: Lógica de negócio
+    - **repository.go**: Camada de dados
+    - **model.go**: Entidades e DTOs
+- **pkg/database/**: Configuração do banco de dados
+- **cmd/**: Pontos de entrada da aplicação
 
 ## 🚀 Como executar
 
 ### Pré-requisitos
 
 - Go 1.21+
-- PostgreSQL 12+ ou Aurora PostgreSQL
+- Aurora PostgreSQL (instância de leitura)
 
 ### 1. Configurar banco de dados
 
@@ -48,11 +51,13 @@ CREATE INDEX idx_data ON previsao_tempo(data);
 Crie um arquivo `.env` na raiz do projeto:
 
 ```env
-DB_CONNECTION_STRING=postgres://username:password@host:5432/database?sslmode=require
+DB_CONNECTION_STRING=postgres://username:password@aurora-instance:5432/database?sslmode=require
 PORT=8080
 ENV=development
 API_TOKEN=your_api_token_here
 ```
+
+**Nota**: O arquivo `.env` não é versionado no Git por questões de segurança.
 
 ### 3. Instalar dependências
 
@@ -86,13 +91,13 @@ Gera previsão climática baseada em dados históricos.
 
 ```bash
 # Previsão para data específica
-curl "http://localhost:8080/?cidade=Guarulhos&estado=SP&data=2025-11-01"
+curl -H "Authorization: Bearer YOUR_API_TOKEN" "http://localhost:8080/?cidade=Guarulhos&estado=SP&data=2025-11-01"
 
 # Previsão para intervalo de datas
-curl "http://localhost:8080/?cidade=Guarulhos&estado=SP&datainicio=2025-11-01&datafim=2025-11-07"
+curl -H "Authorization: Bearer YOUR_API_TOKEN" "http://localhost:8080/?cidade=Guarulhos&estado=SP&datainicio=2025-11-01&datafim=2025-11-07"
 
 # Informações da API
-curl "http://localhost:8080/"
+curl -H "Authorization: Bearer YOUR_API_TOKEN" "http://localhost:8080/"
 ```
 
 ### GET /health
@@ -130,26 +135,41 @@ Para gerar o executável:
 go build -o main cmd/api/main.go
 ```
 
-## 📊 Performance
+## 🔐 Autenticação
 
-- **Latência**: ~44ms para 7 dias de previsão
-- **Tamanho**: ~119KB por resposta
-- **Algoritmo**: Cálculo inteligente com tendência e decaimento
+A API utiliza autenticação via Bearer Token. Inclua o header `Authorization: Bearer YOUR_API_TOKEN` em todas as requisições.
+
+## 🚀 Deploy
+
+O projeto está configurado para deploy automático na AWS Lambda via GitHub Actions:
+
+- **Trigger**: Push para branch `main`
+- **Infraestrutura**: AWS Lambda + API Gateway
+- **Banco**: Aurora PostgreSQL (instância de leitura)
+- **Variáveis**: Configuradas via GitHub Secrets
 
 ## 🏛️ Estrutura do Projeto
 
 ```
 climIA-backend/
-├── cmd/api/main.go           # Ponto de entrada
-├── config/config.go          # Configurações do banco
+├── cmd/
+│   └── api/main.go          # Ponto de entrada da API
+├── configs/
+│   └── config.go            # Configurações da aplicação
 ├── internal/
-│   ├── models/              # Entidades e DTOs
-│   ├── services/            # Lógica de negócio
-│   ├── handlers/            # Controllers HTTP
-│   ├── routes/              # Definição de rotas
-│   ├── database/            # Camada de dados
-│   ├── server/              # Servidor HTTP
-│   └── config/              # Configurações da app
+│   ├── app/
+│   │   └── app.go           # Configuração da aplicação
+│   └── modules/
+│       └── weather/         # Módulo de previsão do tempo
+│           ├── handler.go    # Controllers HTTP
+│           ├── service.go    # Lógica de negócio
+│           ├── repository.go # Camada de dados
+│           └── model.go      # Entidades e DTOs
+├── pkg/
+│   └── database/
+│       └── connection.go     # Configuração do banco
+├── .github/workflows/
+│   └── deploy.yml           # CI/CD para AWS Lambda
 ├── go.mod
 └── go.sum
 ```
@@ -157,6 +177,7 @@ climIA-backend/
 ## 🚀 Próximos Passos
 
 - [x] Migração para Aurora PostgreSQL
+- [x] Deploy automático na AWS Lambda
+- [x] Autenticação via Bearer Token
 - [ ] Cache Redis
-- [ ] Métricas de performance
 - [ ] Documentação OpenAPI
