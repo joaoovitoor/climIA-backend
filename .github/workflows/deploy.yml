@@ -1,5 +1,13 @@
 name: Deploy to Lambda
 
+# Secrets necessários no GitHub:
+# - AWS_ACCESS_KEY_ID
+# - AWS_SECRET_ACCESS_KEY
+# - AWS_ACCOUNT_ID
+# - LAMBDA_ROLE_ARN
+# - DB_CONNECTION_STRING
+# - API_TOKEN
+
 on:
   push:
     branches: [main]
@@ -81,7 +89,7 @@ jobs:
             echo "⚙️ Atualizando configuração..."
             aws lambda update-function-configuration \
               --function-name ${{ env.FUNCTION_NAME }} \
-              --environment Variables="{DB_CONNECTION_STRING=\"${{ secrets.DB_CONNECTION_STRING }}\"}" \
+              --environment Variables="{DB_CONNECTION_STRING=\"${{ secrets.DB_CONNECTION_STRING }}\",PORT=\"8080\",ENV=\"production\",API_TOKEN=\"${{ secrets.API_TOKEN }}\"}" \
               --region ${{ env.REGION }}
           else
             echo "🆕 Criando função Lambda..."
@@ -94,7 +102,7 @@ jobs:
               --region ${{ env.REGION }} \
               --timeout 30 \
               --memory-size 512 \
-              --environment Variables="{DB_CONNECTION_STRING=\"${{ secrets.DB_CONNECTION_STRING }}\"}"
+              --environment Variables="{DB_CONNECTION_STRING=\"${{ secrets.DB_CONNECTION_STRING }}\",PORT=\"8080\",ENV=\"production\",API_TOKEN=\"${{ secrets.API_TOKEN }}\"}"
             
             echo "⏳ Aguardando função ficar ativa..."
             aws lambda wait function-active \

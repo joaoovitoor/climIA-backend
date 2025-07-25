@@ -21,9 +21,9 @@ func LoadConfig() *Config {
 	}
 	return &Config{
 		DBConnectionString: getEnv("DB_CONNECTION_STRING", ""),
-		Port:               getEnv("PORT", "8080"),
-		Env:                getEnv("ENV", "development"),
-		APIToken:           getEnv("API_TOKEN", "c58c5a0d964e9301df9a09900c3be55e6b03f78bef593dea650f55f357f206d4"),
+		Port:               getEnv("PORT", ""),
+		Env:                getEnv("ENV", ""),
+		APIToken:           getEnv("API_TOKEN", ""),
 	}
 }
 
