@@ -18,32 +18,29 @@ O projeto segue uma estrutura intermediária organizada:
 ### Pré-requisitos
 
 - Go 1.21+
-- MySQL 8.0+
+- PostgreSQL 12+ ou Aurora PostgreSQL
 
 ### 1. Configurar banco de dados
 
-Crie um banco MySQL chamado `climia` e execute o script SQL:
+Crie um banco PostgreSQL chamado `postgres` e execute o script SQL:
 
 ```sql
-CREATE DATABASE climia;
-USE climia;
+CREATE TABLE previsao_tempo (
+  id SERIAL PRIMARY KEY,
+  data DATE,
+  temperatura_minima FLOAT,
+  temperatura_maxima FLOAT,
+  temperatura_media FLOAT,
+  cidade VARCHAR(255) NOT NULL,
+  estado VARCHAR(2) NOT NULL,
+  precipitacao DECIMAL(8,2) NOT NULL DEFAULT 0.00,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
 
-CREATE TABLE `previsao_tempo` (
-  `id` int NOT NULL AUTO_INCREMENT,
-  `data` date DEFAULT NULL,
-  `temperatura_minima` float DEFAULT NULL,
-  `temperatura_maxima` float DEFAULT NULL,
-  `temperatura_media` float DEFAULT NULL,
-  `cidade` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `estado` varchar(2) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `precipitacao` decimal(8,2) NOT NULL DEFAULT '0.00',
-  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-  KEY `idx_cidade_estado` (`cidade`,`estado`),
-  KEY `idx_cidade_estado_data` (`cidade`,`estado`,`data`),
-  KEY `idx_data` (`data`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE INDEX idx_cidade_estado ON previsao_tempo(cidade, estado);
+CREATE INDEX idx_cidade_estado_data ON previsao_tempo(cidade, estado, data);
+CREATE INDEX idx_data ON previsao_tempo(data);
 ```
 
 ### 2. Configurar variáveis de ambiente
@@ -51,11 +48,10 @@ CREATE TABLE `previsao_tempo` (
 Crie um arquivo `.env` na raiz do projeto:
 
 ```env
-DB_HOST=localhost
-DB_PORT=3306
-DB_USER=root
-DB_PASS=senha123
-DB_NAME=climia
+DB_CONNECTION_STRING=postgres://username:password@host:5432/database?sslmode=require
+PORT=8080
+ENV=development
+API_TOKEN=your_api_token_here
 ```
 
 ### 3. Instalar dependências
@@ -160,7 +156,7 @@ climIA-backend/
 
 ## 🚀 Próximos Passos
 
-- [ ] Migração para Aurora
+- [x] Migração para Aurora PostgreSQL
 - [ ] Cache Redis
 - [ ] Métricas de performance
 - [ ] Documentação OpenAPI

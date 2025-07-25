@@ -55,13 +55,13 @@ func (s *Service) CalculateForecast(req WeatherRequest) ([]WeatherResponse, erro
 func (s *Service) getWeatherDataForDate(cidade, estado string, data time.Time) (WeatherResponse, error) {
 	hoje := time.Now().Truncate(24 * time.Hour)
 	dataTruncada := data.Truncate(24 * time.Hour)
-	
+
 	if dataTruncada.Before(hoje) {
 		weather, err := s.repository.GetWeatherByDate(cidade, estado, data)
 		if err != nil {
 			return WeatherResponse{}, fmt.Errorf("dados não encontrados para a data especificada")
 		}
-		
+
 		return WeatherResponse{
 			Data:              weather.Data.Format("2006-01-02"),
 			TemperaturaMinima: weather.TemperaturaMinima,
@@ -97,7 +97,7 @@ func (s *Service) getWeatherDataForPeriodOptimized(cidade, estado string, dataIn
 
 	for data := dataInicio; !data.After(dataFim); data = data.AddDate(0, 0, 1) {
 		dataStr := data.Format("2006-01-02")
-		
+
 		if weather, exists := dadosExistentesMap[dataStr]; exists {
 			resultados = append(resultados, WeatherResponse{
 				Data:              dataStr,
@@ -186,20 +186,18 @@ func (s *Service) calculateForecastForDate(cidade, estado string, data time.Time
 func (s *Service) buscarDadosHistoricosParaTendencia(cidade, estado string) ([]map[string]interface{}, error) {
 	query := `
 		SELECT 
-			DAY(data) as dia,
-			MONTH(data) as mes,
-			YEAR(data) as ano,
+			EXTRACT(DAY FROM data) as dia,
+			EXTRACT(MONTH FROM data) as mes,
+			EXTRACT(YEAR FROM data) as ano,
 			AVG(temperatura_minima) as media_minima,
 			AVG(temperatura_media) as media_media,
 			AVG(temperatura_maxima) as media_maxima,
 			AVG(precipitacao) as media_precipitacao
 		FROM previsao_tempo 
-		WHERE cidade = ? 
-			AND estado = ?
-			AND data >= DATE_SUB(CURDATE(), INTERVAL 5 YEAR)
-			AND data < CURDATE()
-		GROUP BY DAY(data), MONTH(data), YEAR(data)
-		ORDER BY YEAR(data), MONTH(data), DAY(data)
+		WHERE cidade = $1 
+			AND estado = $2
+		GROUP BY EXTRACT(DAY FROM data), EXTRACT(MONTH FROM data), EXTRACT(YEAR FROM data)
+		ORDER BY EXTRACT(YEAR FROM data), EXTRACT(MONTH FROM data), EXTRACT(DAY FROM data)
 	`
 
 	rows, err := s.repository.db.Raw(query, cidade, estado).Rows()
@@ -334,4 +332,4 @@ func (s *Service) formatarTemperatura(valor float64) float64 {
 
 func (s *Service) formatarPrecipitacao(valor float64) float64 {
 	return math.Round(valor)
-} 
+}

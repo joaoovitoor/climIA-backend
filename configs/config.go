@@ -9,9 +9,9 @@ import (
 
 type Config struct {
 	DBConnectionString string
-	Port              string
-	Env               string
-	APIToken          string
+	Port               string
+	Env                string
+	APIToken           string
 }
 
 func LoadConfig() *Config {
@@ -20,10 +20,10 @@ func LoadConfig() *Config {
 		log.Println("Arquivo .env não encontrado, usando variáveis de ambiente do sistema")
 	}
 	return &Config{
-		DBConnectionString: getEnv("DB_CONNECTION_STRING", "root:senha123@tcp(localhost:3306)/climia?parseTime=true"),
-		Port:              getEnv("PORT", "8080"),
-		Env:               getEnv("ENV", "development"),
-		APIToken:          getEnv("API_TOKEN", "c58c5a0d964e9301df9a09900c3be55e6b03f78bef593dea650f55f357f206d4"),
+		DBConnectionString: getEnv("DB_CONNECTION_STRING", ""),
+		Port:               getEnv("PORT", ""),
+		Env:                getEnv("ENV", ""),
+		APIToken:           getEnv("API_TOKEN", ""),
 	}
 }
 
@@ -32,4 +32,4 @@ func getEnv(key, defaultValue string) string {
 		return value
 	}
 	return defaultValue
-} 
+}

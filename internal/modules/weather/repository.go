@@ -32,9 +32,9 @@ func (r *Repository) GetWeatherData(cidade, estado string, dataInicio, dataFim *
 
 func (r *Repository) GetWeatherByDate(cidade, estado string, data time.Time) (*Weather, error) {
 	var weather Weather
-	err := r.db.Table("previsao_tempo").Where("cidade = ? AND estado = ? AND DATE(data) = DATE(?)", cidade, estado, data).First(&weather).Error
+	err := r.db.Table("previsao_tempo").Where("cidade = ? AND estado = ? AND CAST(data AS DATE) = CAST(? AS DATE)", cidade, estado, data).First(&weather).Error
 	if err != nil {
 		return nil, err
 	}
 	return &weather, nil
-} 
+}
