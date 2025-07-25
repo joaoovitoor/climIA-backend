@@ -133,7 +133,11 @@ func (s *Service) calculateForecastForDateOptimized(cidade, estado string, data 
 
 	dadosDia := filtrarDadosPorDiaMes(dadosHistoricos, dia, mes)
 	if len(dadosDia) == 0 {
-		return WeatherResponse{}, fmt.Errorf("não há dados históricos para %s/%s no dia %d/%d", cidade, estado, dia, mes)
+		dadosDia = dadosHistoricos
+	}
+
+	if len(dadosDia) == 0 {
+		return WeatherResponse{}, fmt.Errorf("não há dados históricos para %s/%s", cidade, estado)
 	}
 
 	previsao := s.calcularPrevisaoInteligente(dadosDia, ano)
@@ -157,20 +161,33 @@ func (s *Service) calculateForecastForDate(cidade, estado string, data time.Time
 	mes := int(data.Month())
 	ano := data.Year()
 
+	fmt.Printf("DEBUG: Calculando previsão para %s/%s - dia: %d, mês: %d, ano: %d\n", cidade, estado, dia, mes, ano)
+
 	dadosHistoricos, err := s.buscarDadosHistoricosParaTendencia(cidade, estado)
 	if err != nil {
 		return WeatherResponse{}, fmt.Errorf("erro ao buscar dados históricos: %v", err)
 	}
 
+	fmt.Printf("DEBUG: Encontrados %d dados históricos\n", len(dadosHistoricos))
+
 	dadosDia := filtrarDadosPorDiaMes(dadosHistoricos, dia, mes)
+	fmt.Printf("DEBUG: Dados filtrados para dia %d/mês %d: %d\n", dia, mes, len(dadosDia))
+	
 	if len(dadosDia) == 0 {
-		return WeatherResponse{}, fmt.Errorf("não há dados históricos para %s/%s no dia %d/%d", cidade, estado, dia, mes)
+		dadosDia = dadosHistoricos
+		fmt.Printf("DEBUG: Usando todos os dados históricos\n")
+	}
+
+	if len(dadosDia) == 0 {
+		return WeatherResponse{}, fmt.Errorf("não há dados históricos para %s/%s", cidade, estado)
 	}
 
 	previsao := s.calcularPrevisaoInteligente(dadosDia, ano)
 	if previsao == nil {
 		return WeatherResponse{}, fmt.Errorf("erro ao calcular previsão para %s/%s", cidade, estado)
 	}
+
+	fmt.Printf("DEBUG: Previsão calculada: %+v\n", previsao)
 
 	return WeatherResponse{
 		Data:              data.Format("2006-01-02"),
