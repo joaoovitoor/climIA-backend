@@ -173,11 +173,3 @@ climIA-backend/
 ├── go.mod
 └── go.sum
 ```
-
-## 🚀 Próximos Passos
-
-- [x] Migração para Aurora PostgreSQL
-- [x] Deploy automático na AWS Lambda
-- [x] Autenticação via Bearer Token
-- [ ] Cache Redis
-- [ ] Documentação OpenAPI
