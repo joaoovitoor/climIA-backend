@@ -211,13 +211,13 @@ func (s *Service) buscarDadosHistoricosParaTendencia(cidade, estado string) ([]m
 			AVG(temperatura_maxima) as media_maxima,
 			AVG(precipitacao) as media_precipitacao
 		FROM previsao_tempo 
-		WHERE cidade = $1 
-			AND estado = $2
+		WHERE cidade = '` + cidade + `' 
+			AND estado = '` + estado + `'
 		GROUP BY EXTRACT(DAY FROM data), EXTRACT(MONTH FROM data), EXTRACT(YEAR FROM data)
 		ORDER BY EXTRACT(YEAR FROM data), EXTRACT(MONTH FROM data), EXTRACT(DAY FROM data)
 	`
 
-	rows, err := s.repository.db.Raw(query, cidade, estado).Rows()
+	rows, err := s.repository.db.Raw(query).Rows()
 	if err != nil {
 		return nil, fmt.Errorf("erro na query: %v", err)
 	}
