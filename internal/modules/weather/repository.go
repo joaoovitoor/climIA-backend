@@ -16,14 +16,17 @@ func NewRepository(db *gorm.DB) *Repository {
 
 func (r *Repository) GetWeatherData(cidade, estado string, dataInicio, dataFim *time.Time) ([]Weather, error) {
 	var weatherData []Weather
+	
+	// Construir a query base
 	query := r.db.Table("previsao_tempo").Where("cidade = ? AND estado = ?", cidade, estado)
 
+	// Adicionar condições de data se fornecidas
 	if dataInicio != nil && dataFim != nil {
-		query = query.Where("data BETWEEN ? AND ?", dataInicio, dataFim)
+		query = query.Where("data >= ? AND data <= ?", dataInicio.Format("2006-01-02"), dataFim.Format("2006-01-02"))
 	} else if dataInicio != nil {
-		query = query.Where("data >= ?", dataInicio)
+		query = query.Where("data >= ?", dataInicio.Format("2006-01-02"))
 	} else if dataFim != nil {
-		query = query.Where("data <= ?", dataFim)
+		query = query.Where("data <= ?", dataFim.Format("2006-01-02"))
 	}
 
 	err := query.Order("data ASC").Find(&weatherData).Error
