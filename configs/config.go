@@ -12,6 +12,9 @@ type Config struct {
 	Port               string
 	Env                string
 	APIToken           string
+	DynamoAccessKey    string
+	DynamoSecret       string
+	DynamoTableName    string
 }
 
 func LoadConfig() *Config {
@@ -24,6 +27,9 @@ func LoadConfig() *Config {
 		Port:               getEnv("PORT", ""),
 		Env:                getEnv("ENV", ""),
 		APIToken:           getEnv("API_TOKEN", ""),
+		DynamoAccessKey:    getEnv("DYNAMO_ACCESS_KEY", ""),
+		DynamoSecret:       getEnv("DYNAMO_SECRET", ""),
+		DynamoTableName:    getEnv("DYNAMODB_TABLE_NAME", "weather-predictions"),
 	}
 }
 

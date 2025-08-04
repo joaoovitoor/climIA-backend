@@ -1,6 +1,8 @@
 package app
 
 import (
+	"log"
+
 	"climia-backend/configs"
 	"climia-backend/internal/modules/weather"
 	"climia-backend/pkg/database"
@@ -16,11 +18,18 @@ type App struct {
 
 func NewApp() *App {
 	appConfig := configs.LoadConfig()
-	
+
 	db := database.NewConnection(appConfig)
-	weatherRepo := weather.NewRepository(db)
-	weatherService := weather.NewService(weatherRepo)
+	weatherMySQLRepo := weather.NewMySQLRepository(db)
+	weatherService := weather.NewService(weatherMySQLRepo)
 	weatherHandler := weather.NewHandler(weatherService, appConfig)
+
+	dynamoRepo, err := weather.NewDynamoDBRepository(appConfig)
+	if err != nil {
+		log.Printf("Erro ao inicializar DynamoDB: %v", err)
+	}
+	dynamoService := weather.NewDynamoDBService(dynamoRepo)
+	dynamoHandler := weather.NewDynamoDBHandler(dynamoService, appConfig)
 
 	app := fiber.New(fiber.Config{
 		ErrorHandler: func(c *fiber.Ctx, err error) error {
@@ -42,14 +51,14 @@ func NewApp() *App {
 		TimeZone:   "America/Sao_Paulo",
 	}))
 
-	setupRoutes(app, weatherHandler)
+	setupRoutes(app, weatherHandler, dynamoHandler)
 
 	return &App{
 		FiberApp: app,
 	}
 }
 
-func setupRoutes(app *fiber.App, weatherHandler *weather.Handler) {
+func setupRoutes(app *fiber.App, weatherHandler *weather.Handler, dynamoHandler *weather.DynamoDBHandler) {
 	app.Get("/health", func(c *fiber.Ctx) error {
 		return c.JSON(fiber.Map{
 			"status":  "ok",
@@ -57,6 +66,9 @@ func setupRoutes(app *fiber.App, weatherHandler *weather.Handler) {
 		})
 	})
 
-	api := app.Group("/", weatherHandler.AuthMiddleware)
-	api.Get("/", weatherHandler.CalculateForecast)
-} 
+	api := app.Group("/", dynamoHandler.AuthMiddleware)
+	api.Get("/", dynamoHandler.GetProcessedForecast)
+
+	mysqlApi := app.Group("/mysql", weatherHandler.AuthMiddleware)
+	mysqlApi.Get("/", weatherHandler.CalculateForecast)
+}

@@ -9,10 +9,10 @@ import (
 )
 
 type Service struct {
-	repository *Repository
+	repository *MySQLRepository
 }
 
-func NewService(repository *Repository) *Service {
+func NewService(repository *MySQLRepository) *Service {
 	return &Service{repository: repository}
 }
 
@@ -172,7 +172,7 @@ func (s *Service) calculateForecastForDate(cidade, estado string, data time.Time
 
 	dadosDia := filtrarDadosPorDiaMes(dadosHistoricos, dia, mes)
 	fmt.Printf("DEBUG: Dados filtrados para dia %d/mês %d: %d\n", dia, mes, len(dadosDia))
-	
+
 	if len(dadosDia) == 0 {
 		dadosDia = dadosHistoricos
 		fmt.Printf("DEBUG: Usando todos os dados históricos\n")

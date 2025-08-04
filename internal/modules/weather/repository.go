@@ -6,15 +6,15 @@ import (
 	"gorm.io/gorm"
 )
 
-type Repository struct {
+type MySQLRepository struct {
 	db *gorm.DB
 }
 
-func NewRepository(db *gorm.DB) *Repository {
-	return &Repository{db: db}
+func NewMySQLRepository(db *gorm.DB) *MySQLRepository {
+	return &MySQLRepository{db: db}
 }
 
-func (r *Repository) GetWeatherData(cidade, estado string, dataInicio, dataFim *time.Time) ([]Weather, error) {
+func (r *MySQLRepository) GetWeatherData(cidade, estado string, dataInicio, dataFim *time.Time) ([]Weather, error) {
 	var weatherData []Weather
 
 	sql := "SELECT * FROM previsao_tempo WHERE cidade = '" + cidade + "' AND estado = '" + estado + "'"
@@ -33,7 +33,7 @@ func (r *Repository) GetWeatherData(cidade, estado string, dataInicio, dataFim *
 	return weatherData, err
 }
 
-func (r *Repository) GetWeatherByDate(cidade, estado string, data time.Time) (*Weather, error) {
+func (r *MySQLRepository) GetWeatherByDate(cidade, estado string, data time.Time) (*Weather, error) {
 	var weather Weather
 	err := r.db.Table("previsao_tempo").Where("cidade = ? AND estado = ? AND CAST(data AS DATE) = CAST(? AS DATE)", cidade, estado, data).First(&weather).Error
 	if err != nil {

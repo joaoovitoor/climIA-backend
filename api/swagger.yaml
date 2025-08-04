@@ -37,8 +37,8 @@ paths:
 
   /:
     get:
-      summary: Previsão do tempo
-      description: Retorna previsão do tempo para uma cidade e estado
+      summary: Previsão do tempo (DynamoDB - Dados Processados)
+      description: Retorna previsão do tempo a partir de dados já processados no DynamoDB (mais rápido)
       tags:
         - Weather
       security:
@@ -81,7 +81,75 @@ paths:
             example: "2024-01-31"
       responses:
         "200":
-          description: Previsão do tempo
+          description: Previsão do tempo a partir de dados processados
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/WeatherResponse"
+                  - type: array
+                    items:
+                      $ref: "#/components/schemas/WeatherResponse"
+        "400":
+          description: Parâmetros inválidos
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Token de autenticação inválido
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /mysql:
+    get:
+      summary: Previsão do tempo (MySQL - Processamento em Tempo Real)
+      description: Retorna previsão do tempo processada em tempo real a partir dos dados brutos do MySQL
+      tags:
+        - Weather
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: cidade
+          in: query
+          required: true
+          description: Nome da cidade
+          schema:
+            type: string
+            example: "São Paulo"
+        - name: estado
+          in: query
+          required: true
+          description: Sigla do estado
+          schema:
+            type: string
+            example: "SP"
+        - name: data
+          in: query
+          required: false
+          description: Data específica (YYYY-MM-DD)
+          schema:
+            type: string
+            example: "2024-01-15"
+        - name: datainicio
+          in: query
+          required: false
+          description: Data de início do período (YYYY-MM-DD)
+          schema:
+            type: string
+            example: "2024-01-01"
+        - name: datafim
+          in: query
+          required: false
+          description: Data de fim do período (YYYY-MM-DD)
+          schema:
+            type: string
+            example: "2024-01-31"
+      responses:
+        "200":
+          description: Previsão do tempo processada em tempo real
           content:
             application/json:
               schema:
