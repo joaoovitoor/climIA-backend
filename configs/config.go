@@ -22,7 +22,8 @@ func LoadConfig() *Config {
 	if err != nil {
 		log.Println("Arquivo .env não encontrado, usando variáveis de ambiente do sistema")
 	}
-	return &Config{
+
+	config := &Config{
 		DBConnectionString: getEnv("DB_CONNECTION_STRING", ""),
 		Port:               getEnv("PORT", ""),
 		Env:                getEnv("ENV", ""),
@@ -31,6 +32,8 @@ func LoadConfig() *Config {
 		DynamoSecret:       getEnv("DYNAMO_SECRET", ""),
 		DynamoTableName:    getEnv("DYNAMODB_TABLE_NAME", "weather-predictions"),
 	}
+
+	return config
 }
 
 func getEnv(key, defaultValue string) string {
