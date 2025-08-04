@@ -34,7 +34,7 @@ type DynamoDBWeather struct {
 }
 
 func NewDynamoDBRepository(config *configs.Config) (*DynamoDBRepository, error) {
-	// Verificar se as credenciais não estão vazias
+
 	if config.DynamoAccessKey == "" || config.DynamoSecret == "" {
 		return nil, fmt.Errorf("credenciais do DynamoDB não configuradas")
 	}
@@ -127,11 +127,9 @@ func (r *DynamoDBRepository) GetWeatherDataForPeriod(cidade, estado string, data
 			continue
 		}
 
-		// Reconstruir a data a partir do dia e mês (usando o ano da data de início)
 		ano := dataInicio.Year()
 		data := time.Date(ano, time.Month(dynamoWeather.Mes), dynamoWeather.Dia, 0, 0, 0, 0, time.UTC)
 
-		// Verificar se a data está no período solicitado
 		if (data.After(dataInicio) || data.Equal(dataInicio)) && (data.Before(dataFim) || data.Equal(dataFim)) {
 			responses = append(responses, WeatherResponse{
 				Cidade:            dynamoWeather.Cidade,
