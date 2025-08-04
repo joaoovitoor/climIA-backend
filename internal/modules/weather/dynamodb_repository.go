@@ -34,6 +34,11 @@ type DynamoDBWeather struct {
 }
 
 func NewDynamoDBRepository(config *configs.Config) (*DynamoDBRepository, error) {
+	// Verificar se as credenciais não estão vazias
+	if config.DynamoAccessKey == "" || config.DynamoSecret == "" {
+		return nil, fmt.Errorf("credenciais do DynamoDB não configuradas")
+	}
+
 	sess, err := session.NewSession(&aws.Config{
 		Region:      aws.String("us-east-1"),
 		Credentials: credentials.NewStaticCredentials(config.DynamoAccessKey, config.DynamoSecret, ""),

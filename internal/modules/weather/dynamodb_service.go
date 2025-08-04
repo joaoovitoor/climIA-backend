@@ -14,6 +14,10 @@ func NewDynamoDBService(repository *DynamoDBRepository) *DynamoDBService {
 }
 
 func (s *DynamoDBService) GetProcessedForecast(req WeatherRequest) ([]WeatherResponse, error) {
+	if s.repository == nil {
+		return nil, fmt.Errorf("repositório DynamoDB não inicializado")
+	}
+
 	if req.Cidade == "" || req.Estado == "" {
 		return nil, fmt.Errorf("cidade e estado são obrigatórios")
 	}

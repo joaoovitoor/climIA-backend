@@ -24,12 +24,16 @@ func NewApp() *App {
 	weatherService := weather.NewService(weatherMySQLRepo)
 	weatherHandler := weather.NewHandler(weatherService, appConfig)
 
+	var dynamoHandler *weather.DynamoDBHandler
 	dynamoRepo, err := weather.NewDynamoDBRepository(appConfig)
 	if err != nil {
 		log.Printf("Erro ao inicializar DynamoDB: %v", err)
+		// Se não conseguir inicializar o DynamoDB, não criar o handler
+		dynamoHandler = nil
+	} else {
+		dynamoService := weather.NewDynamoDBService(dynamoRepo)
+		dynamoHandler = weather.NewDynamoDBHandler(dynamoService, appConfig)
 	}
-	dynamoService := weather.NewDynamoDBService(dynamoRepo)
-	dynamoHandler := weather.NewDynamoDBHandler(dynamoService, appConfig)
 
 	app := fiber.New(fiber.Config{
 		ErrorHandler: func(c *fiber.Ctx, err error) error {
