@@ -2,6 +2,7 @@ package weather
 
 import (
 	"fmt"
+	"math"
 	"time"
 
 	"climia-backend/configs"
@@ -51,6 +52,10 @@ func NewDynamoDBRepository(config *configs.Config) (*DynamoDBRepository, error) 
 	return &DynamoDBRepository{svc: svc, config: config}, nil
 }
 
+func (r *DynamoDBRepository) arredondarTemperatura(valor float64) float64 {
+	return math.Round(valor*10) / 10
+}
+
 func (r *DynamoDBRepository) GetWeatherByDate(cidade, estado string, data time.Time) (*WeatherResponse, error) {
 	dia := data.Day()
 	mes := int(data.Month())
@@ -90,9 +95,9 @@ func (r *DynamoDBRepository) GetWeatherByDate(cidade, estado string, data time.T
 		Cidade:            dynamoWeather.Cidade,
 		Estado:            dynamoWeather.Estado,
 		Data:              data.Format("2006-01-02"),
-		TemperaturaMinima: dynamoWeather.TemperaturaMinima,
-		TemperaturaMaxima: dynamoWeather.TemperaturaMaxima,
-		TemperaturaMedia:  dynamoWeather.TemperaturaMedia,
+		TemperaturaMinima: r.arredondarTemperatura(dynamoWeather.TemperaturaMinima),
+		TemperaturaMaxima: r.arredondarTemperatura(dynamoWeather.TemperaturaMaxima),
+		TemperaturaMedia:  r.arredondarTemperatura(dynamoWeather.TemperaturaMedia),
 		Precipitacao:      dynamoWeather.Precipitacao,
 	}, nil
 }
@@ -135,9 +140,9 @@ func (r *DynamoDBRepository) GetWeatherDataForPeriod(cidade, estado string, data
 				Cidade:            dynamoWeather.Cidade,
 				Estado:            dynamoWeather.Estado,
 				Data:              data.Format("2006-01-02"),
-				TemperaturaMinima: dynamoWeather.TemperaturaMinima,
-				TemperaturaMaxima: dynamoWeather.TemperaturaMaxima,
-				TemperaturaMedia:  dynamoWeather.TemperaturaMedia,
+				TemperaturaMinima: r.arredondarTemperatura(dynamoWeather.TemperaturaMinima),
+				TemperaturaMaxima: r.arredondarTemperatura(dynamoWeather.TemperaturaMaxima),
+				TemperaturaMedia:  r.arredondarTemperatura(dynamoWeather.TemperaturaMedia),
 				Precipitacao:      dynamoWeather.Precipitacao,
 			})
 		}
