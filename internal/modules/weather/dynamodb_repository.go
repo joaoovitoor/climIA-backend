@@ -53,7 +53,7 @@ func NewDynamoDBRepository(config *configs.Config) (*DynamoDBRepository, error) 
 }
 
 func (r *DynamoDBRepository) arredondarTemperatura(valor float64) float64 {
-	return math.Round(valor*10) / 10
+	return math.Ceil(valor)
 }
 
 func (r *DynamoDBRepository) GetWeatherByDate(cidade, estado string, data time.Time) (*WeatherResponse, error) {
