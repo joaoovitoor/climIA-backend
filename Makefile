@@ -1,7 +1,7 @@
 .PHONY: build deploy clean test run
 
 # Configurações
-FUNCTION_NAME=climia-api
+FUNCTION_NAME=climia-backend
 REGION=us-east-1
 
 # Build para Lambda

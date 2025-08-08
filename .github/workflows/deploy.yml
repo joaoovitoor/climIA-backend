@@ -16,7 +16,7 @@ on:
     branches: [main]
 
 env:
-  FUNCTION_NAME: climia-api
+  FUNCTION_NAME: climia-backend
   REGION: us-east-1
   API_NAME: ClimIA API
 

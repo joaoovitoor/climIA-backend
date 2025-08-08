@@ -30,7 +30,7 @@ func LoadConfig() *Config {
 		APIToken:           getEnv("API_TOKEN", ""),
 		DynamoAccessKey:    getEnv("DYNAMO_ACCESS_KEY", ""),
 		DynamoSecret:       getEnv("DYNAMO_SECRET", ""),
-		DynamoTableName:    getEnv("DYNAMODB_TABLE_NAME", "weather-predictions"),
+		DynamoTableName:    getEnv("DYNAMODB_TABLE_NAME", "ClimIA-Previsoes"),
 	}
 
 	return config
