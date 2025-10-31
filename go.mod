@@ -4,6 +4,7 @@ go 1.21
 
 require (
 	github.com/aws/aws-lambda-go v1.49.0
+	github.com/aws/aws-sdk-go v1.55.8
 	github.com/awslabs/aws-lambda-go-api-proxy v0.16.2
 	github.com/gofiber/fiber/v2 v2.52.1
 	github.com/joho/godotenv v1.5.1
@@ -13,7 +14,6 @@ require (
 
 require (
 	github.com/andybalholm/brotli v1.1.0 // indirect
-	github.com/aws/aws-sdk-go v1.55.8 // indirect
 	github.com/go-sql-driver/mysql v1.7.0 // indirect
 	github.com/google/uuid v1.5.0 // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect
