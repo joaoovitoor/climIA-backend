@@ -5,7 +5,6 @@ name: Deploy to Lambda
 # - AWS_SECRET_ACCESS_KEY
 # - AWS_ACCOUNT_ID
 # - LAMBDA_ROLE_ARN
-# - DB_CONNECTION_STRING
 # - API_TOKEN
 # - DYNAMO_ACCESS_KEY
 # - DYNAMO_SECRET
@@ -92,7 +91,7 @@ jobs:
             echo "⚙️ Atualizando configuração..."
             aws lambda update-function-configuration \
               --function-name ${{ env.FUNCTION_NAME }} \
-              --environment Variables="{DB_CONNECTION_STRING=\"${{ secrets.DB_CONNECTION_STRING }}\",PORT=\"8080\",ENV=\"production\",API_TOKEN=\"${{ secrets.API_TOKEN }}\",DYNAMO_ACCESS_KEY=\"${{ secrets.DYNAMO_ACCESS_KEY }}\",DYNAMO_SECRET=\"${{ secrets.DYNAMO_SECRET }}\",DYNAMODB_TABLE_NAME=\"${{ secrets.DYNAMODB_TABLE_NAME }}\"}" \
+              --environment Variables="{PORT=\"8080\",ENV=\"production\",API_TOKEN=\"${{ secrets.API_TOKEN }}\",DYNAMO_ACCESS_KEY=\"${{ secrets.DYNAMO_ACCESS_KEY }}\",DYNAMO_SECRET=\"${{ secrets.DYNAMO_SECRET }}\",DYNAMODB_TABLE_NAME=\"${{ secrets.DYNAMODB_TABLE_NAME }}\"}" \
               --region ${{ env.REGION }}
           else
             echo "🆕 Criando função Lambda..."
@@ -105,7 +104,7 @@ jobs:
               --region ${{ env.REGION }} \
               --timeout 30 \
               --memory-size 512 \
-              --environment Variables="{DB_CONNECTION_STRING=\"${{ secrets.DB_CONNECTION_STRING }}\",PORT=\"8080\",ENV=\"production\",API_TOKEN=\"${{ secrets.API_TOKEN }}\",DYNAMO_ACCESS_KEY=\"${{ secrets.DYNAMO_ACCESS_KEY }}\",DYNAMO_SECRET=\"${{ secrets.DYNAMO_SECRET }}\",DYNAMODB_TABLE_NAME=\"${{ secrets.DYNAMODB_TABLE_NAME }}\"}"
+              --environment Variables="{PORT=\"8080\",ENV=\"production\",API_TOKEN=\"${{ secrets.API_TOKEN }}\",DYNAMO_ACCESS_KEY=\"${{ secrets.DYNAMO_ACCESS_KEY }}\",DYNAMO_SECRET=\"${{ secrets.DYNAMO_SECRET }}\",DYNAMODB_TABLE_NAME=\"${{ secrets.DYNAMODB_TABLE_NAME }}\"}"
             
             echo "⏳ Aguardando função ficar ativa..."
             aws lambda wait function-active \
