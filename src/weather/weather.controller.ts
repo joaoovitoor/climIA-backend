@@ -90,7 +90,7 @@ export class WeatherController {
   private findCity(cidade: string, estado?: string) {
     if (!this.citiesCache) {
       // eslint-disable-next-line @typescript-eslint/no-require-imports
-      this.citiesCache = require('../../../frontend/data/cities.json');
+      this.citiesCache = require('../data/cities.json');
     }
 
     const query = cidade
