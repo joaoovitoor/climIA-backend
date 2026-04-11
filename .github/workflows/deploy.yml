@@ -46,13 +46,21 @@ jobs:
                   aws lambda wait function-updated \
                     --function-name ${{ env.FUNCTION_NAME }}
             - name: Update environment variables
+              env:
+                  VAR_API_TOKEN: ${{ secrets.API_TOKEN }}
+                  VAR_DYNAMODB_TABLE_NAME: ${{ secrets.DYNAMODB_TABLE_NAME }}
               run: |
+                  jq -n \
+                    --arg API_TOKEN "$VAR_API_TOKEN" \
+                    --arg DYNAMODB_TABLE_NAME "$VAR_DYNAMODB_TABLE_NAME" \
+                    '{Variables: {
+                      NODE_ENV: "production",
+                      API_TOKEN: $API_TOKEN,
+                      DYNAMODB_TABLE_NAME: $DYNAMODB_TABLE_NAME,
+                      POLICY_REFRESH: "1"
+                    }}' > /tmp/env.json
+
                   aws lambda update-function-configuration \
                     --function-name ${{ env.FUNCTION_NAME }} \
-                    --environment "Variables={
-                      NODE_ENV=production,
-                      API_TOKEN=${{ secrets.API_TOKEN }},
-                      DYNAMODB_TABLE_NAME=${{ secrets.DYNAMODB_TABLE_NAME }},
-                      POLICY_REFRESH=1
-                    }" \
+                    --environment file:///tmp/env.json \
                     --no-cli-pager > /dev/null
