@@ -1,0 +1,58 @@
+name: Deploy to AWS Lambda
+
+on:
+    push:
+        branches: [main]
+
+env:
+    AWS_REGION: us-east-1
+    FUNCTION_NAME: climia-backend
+    S3_BUCKET: climia-deployments-274616633915
+
+jobs:
+    deploy:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: '20'
+                  cache: 'npm'
+            - run: npm ci
+            - run: npm run build
+            - name: Package
+              run: |
+                  mkdir -p .deploy
+                  cp -r dist .deploy/
+                  cp package.json .deploy/
+                  cd .deploy
+                  npm install --production --ignore-scripts --no-audit --no-fund
+                  rm -f package.json package-lock.json
+                  zip -rq deploy.zip .
+            - uses: aws-actions/configure-aws-credentials@v4
+              with:
+                  aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+                  aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+                  aws-region: ${{ env.AWS_REGION }}
+            - name: Upload to S3
+              run: aws s3 cp .deploy/deploy.zip s3://${{ env.S3_BUCKET }}/${{ env.FUNCTION_NAME }}/deploy.zip --quiet
+            - name: Deploy Lambda
+              run: |
+                  aws lambda update-function-code \
+                    --function-name ${{ env.FUNCTION_NAME }} \
+                    --s3-bucket ${{ env.S3_BUCKET }} \
+                    --s3-key ${{ env.FUNCTION_NAME }}/deploy.zip \
+                    --no-cli-pager > /dev/null
+                  aws lambda wait function-updated \
+                    --function-name ${{ env.FUNCTION_NAME }}
+            - name: Update environment variables
+              run: |
+                  aws lambda update-function-configuration \
+                    --function-name ${{ env.FUNCTION_NAME }} \
+                    --environment "Variables={
+                      NODE_ENV=production,
+                      API_TOKEN=${{ secrets.API_TOKEN }},
+                      DYNAMODB_TABLE_NAME=${{ secrets.DYNAMODB_TABLE_NAME }},
+                      POLICY_REFRESH=1
+                    }" \
+                    --no-cli-pager > /dev/null
